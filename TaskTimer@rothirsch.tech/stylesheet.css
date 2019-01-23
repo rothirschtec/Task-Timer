@@ -1,0 +1,66 @@
+
+.new-task-box {
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.new-task-entry {
+  margin-top: 10px;
+  margin-left: 25px;
+  margin-right: 50px;
+  text-align: center;
+  width: 150px;
+}
+
+.new-task-slider {
+  margin-top: 15px;
+  width: 200px;
+}
+
+.new-task-header {
+  font-size: 20px;
+  width: 400 px;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.time-label {
+  margin-top: 10px;
+  font-size: 20px;
+  width: 100px;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.enter-button {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.task-box {
+  margin-top: 5px;
+  padding-left: 15px;
+  width: 400px;
+}
+
+.task {
+  margin-top: 5px;
+  background-color: #FF0000;
+  background-image: url('icons/progress_bar.png');
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  border-radius: 7px;
+}
+
+.delete_button {
+  margin-right: 0px;
+  padding-right: 0px;
+  text-align: right;
+}
+
+.label {
+  width: 170px;
+}
+.durationLabel {
+  width: 100px;
+}
