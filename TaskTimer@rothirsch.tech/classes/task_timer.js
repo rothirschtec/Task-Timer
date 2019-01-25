@@ -12,7 +12,7 @@ const Shell = imports.gi.Shell;
 const Extension = imports.misc.extensionUtils.getCurrentExtension();
 const TaskItem = Extension.imports.classes.task_item;
 const Utils = Extension.imports.classes.utils;
-const new_task = Extension.imports.classes.new_task;
+const task_settings = Extension.imports.classes.task_settings;
 
 const ADD_ICON = Gio.icon_new_for_string(Extension.path + "/icons/add_icon.png");
 
@@ -91,8 +91,9 @@ TaskTimer.prototype = {
     let icon = new St.Icon({icon_size: 30, gicon: ADD_ICON});
     this.btn_add.add_actor(icon);
     this.newTaskSection = new PopupMenu.PopupMenuSection();
-    this.timeHeader = new St.Label({text:_("New Task"), track_hover: true, y_align: Clutter.ActorAlign.CENTER});
+    this.timeHeader = new St.Button({label:_("New Task"), track_hover: true, y_align: Clutter.ActorAlign.CENTER});
     this.timeHeader.add_style_class_name("new-task-header");
+    this.timeHeader.connect('clicked', Lang.bind(this, this._onNewTaskClose));
     this.newTaskBox = new St.BoxLayout();
     this.newTaskBox.set_vertical(false);
     this.timeLabel = new St.Label({text:_("0:00"), y_align: Clutter.ActorAlign.CENTER});
@@ -128,6 +129,11 @@ TaskTimer.prototype = {
       this.newTaskSection.actor.show();
   },
 
+  _onNewTaskClose : function(){
+    this.btn_add.show();
+    this.newTaskSection.actor.hide();
+  },
+
   _onEnterClicked : function(){
       if (this.time != 0 && this.newTask.get_text() != ""){
         this._create_task(this.newTask.get_text());
@@ -151,7 +157,6 @@ TaskTimer.prototype = {
     hours = hours.toString();
     if (minutes < 10) minutes = "0" + minutes.toString(); else minutes = minutes.toString();
     this.timeLabel.text = hours + ":" + minutes;
-
   },
 
   _create_task : function(text){
@@ -193,14 +198,51 @@ TaskTimer.prototype = {
     this.timeSlider._moveHandle(0,0);
     item.connect('delete_signal', Lang.bind(this, this._delete_task));
     item.connect('update_signal', Lang.bind(this, this._update_task));
-    item.connect('stop_signal', Lang.bind(this, this._stop_all));
+    item.connect('stop_signal', Lang.bind(this, this._stop_all_but_current));
+    item.connect('settings_signal', Lang.bind(this, this._settings));
+    item.connect('closeSettings_signal', Lang.bind(this, this._closeSettings));
     if (task.running){
       item.task.running = false;
       item._startStop();
     }
   },
 
-  _stop_all: function(o, task){
+  _settings : function(o, task){
+      this._stop_all();
+      this.btn_add.hide();
+      this.newTaskSection.actor.hide();
+      this.settingsBox = new St.BoxLayout();
+      this.mainBox.add_actor(this.settingsBox);
+      for (item of this.taskBox._getMenuItems()){
+        if (item.task.id != task.id){
+          item.actor.hide();
+        } else {
+          this.taskSettings = new task_settings.TaskSettings(task);
+          this.taskSettings.connect('update_signal', Lang.bind(this, this._update_from_settings));
+          this.settingsBox.add_actor(this.taskSettings.actor);
+        }
+      }
+  },
+
+  _closeSettings : function(){
+    this.taskSettings.actor.disconnect('update_signal');
+    this.taskSettings.destroy();
+    this.settingsBox.destroy();
+    this.btn_add.show();
+      for (item of this.taskBox._getMenuItems()){
+        item.actor.show();
+      }
+  },
+
+  _stop_all: function(){
+      for (item of this.taskBox._getMenuItems()){
+          if (item.task.running){
+            item._startStop();
+        }
+      }
+  },
+
+  _stop_all_but_current: function(o, task){
       for (item of this.taskBox._getMenuItems()){
           if (item.task.running && item.task.id != task.id){
             item._startStop();
@@ -209,6 +251,7 @@ TaskTimer.prototype = {
   },
 
   _delete_task: function(o, task){
+      this._closeSettings();
       delete this.listOfTasks[task.id];
       this._save();
       this.currTime = 0;
@@ -223,6 +266,21 @@ TaskTimer.prototype = {
   _update_task: function(o, task){
       this.listOfTasks[task.id] = task;
       this._save();
+      this.currTime = 0;
+      for (var id in this.listOfTasks){
+        this.currTime += this.listOfTasks[id].currTime;
+      }
+      this.buttonText.text = Utils.convertTime(this.currTime) + " / " + Utils.convertTime(this.totalTime);
+  },
+
+  _update_from_settings: function(o, task){
+      this.listOfTasks[task.id] = task;
+      this._save();
+      for (item of this.taskBox._getMenuItems()){
+        if (item.task.id == task.id){
+          item._update(false);
+        }
+      }
       this.currTime = 0;
       for (var id in this.listOfTasks){
         this.currTime += this.listOfTasks[id].currTime;
@@ -282,6 +340,7 @@ TaskTimer.prototype = {
         task.actor.disconnect('delete_signal');
         task.actor.disconnect('update_signal');
         task.actor.disconnect('stop_signal');
+        task.actor.disconnect('settings_signal');
         task.destroy();
     }
     this.taskBox.removeAll();

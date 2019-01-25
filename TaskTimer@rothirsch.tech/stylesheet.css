@@ -59,8 +59,48 @@
 }
 
 .label {
-  width: 170px;
+  width: 150px;
 }
 .durationLabel {
   width: 100px;
+}
+
+.settings-box {
+  margin-bottom: 10px;
+  padding-left: 15px;
+  padding-right: 15px;
+  width: 399px;
+}
+
+.time-slider {
+  margin-left: 15px;
+  margin-right: 15px;
+  width: 280px;
+}
+
+.settings-label {
+  width: 100px;
+}
+
+.weekday-label {
+  font-size: 12px;
+  width: 57px;
+  text-align: center;
+  text-decoration: underline;
+}
+
+.weekday-times {
+  font-size: 10px;
+  width: 57px;
+  text-align: center;
+}
+
+.button-box {
+  padding-left: 30px;
+  width: 100px;
+  text-align: center;
+  spacing: 10px;
+}
+
+.task-buttons {
 }

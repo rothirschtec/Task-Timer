@@ -14,6 +14,7 @@ const CLOSE_ICON = Gio.icon_new_for_string(Extension.path + "/icons/close_icon.p
 const PLAY_ICON = Gio.icon_new_for_string(Extension.path + "/icons/play_icon.png");
 const PAUSE_ICON = Gio.icon_new_for_string(Extension.path + "/icons/pause_icon.png");
 const RESTART_ICON = Gio.icon_new_for_string(Extension.path + "/icons/restart_icon.png");
+const SETTINGS_ICON = Gio.icon_new_for_string(Extension.path + "/icons/settings_icon.png");
 const PROGRESS_BAR_LENGTH = 400;
 
 
@@ -25,6 +26,7 @@ Task.prototype = {
   __proto__: PopupMenu.PopupMenuItem.prototype,
   _init: function(task){
     this.task = task;
+    this.settingsOpen = false;
     PopupMenu.PopupMenuItem.prototype._init.call(this, this.task.name, false);
     this.actor.add_style_class_name("task");
     this.label.add_style_class_name("label");
@@ -37,23 +39,32 @@ Task.prototype = {
     this.connections = [];
 
     //Set menu buttons
+    this.buttonBox = new St.BoxLayout();
+    this.buttonBox.set_vertical(false);
+    this.buttonBox.add_style_class_name("button-box");
     this.btn_delete = new St.Button({style_class: 'delete_button', label: ''});
-    let icon = new St.Icon({icon_size: 12, gicon: CLOSE_ICON, style_class: 'delete_button'});
+    let icon = new St.Icon({icon_size: 12, gicon: CLOSE_ICON, style_class: 'task-buttons'});
     this.btn_delete.add_actor(icon);
     this.btn_play = new St.Button({label: ""});
-    icon = new St.Icon({icon_size: 12, gicon: PLAY_ICON});
+    icon = new St.Icon({icon_size: 12, gicon: PLAY_ICON, style_class: 'task-buttons'});
     this.btn_play.add_actor(icon);
     this.btn_pause = new St.Button({label: ""});
-    icon = new St.Icon({icon_size: 12, gicon: PAUSE_ICON,});
+    icon = new St.Icon({icon_size: 12, gicon: PAUSE_ICON,style_class: 'task-buttons'});
     this.btn_pause.add_actor(icon);
     this.btn_restart = new St.Button({label: ""});
-    icon = new St.Icon({icon_size: 12, gicon: RESTART_ICON,});
+    icon = new St.Icon({icon_size: 12, gicon: RESTART_ICON,style_class: 'task-buttons'});
     this.btn_restart.add_actor(icon);
-    this.actor.add_actor(this.btn_play);
-    this.actor.add_actor(this.btn_pause);
-    this.actor.add_actor(this.btn_restart);
-    this.actor.add_actor(this.btn_delete);
+    this.btn_settings = new St.Button({label: ""});
+    icon = new St.Icon({icon_size: 12, gicon: SETTINGS_ICON,style_class: 'task-buttons'});
+    this.btn_settings.add_actor(icon);
+    this.buttonBox.add_actor(this.btn_play);
+    this.buttonBox.add_actor(this.btn_pause);
+    this.buttonBox.add_actor(this.btn_restart);
+    this.buttonBox.add_actor(this.btn_delete);
+    this.buttonBox.add_actor(this.btn_settings);
+    this.actor.add_actor(this.buttonBox);
     this.btn_pause.hide();
+    this.btn_delete.hide();
 
     //connect buttons to events
     let conn = this.btn_delete.connect('clicked', Lang.bind(this, this._delete_task));
@@ -64,9 +75,11 @@ Task.prototype = {
     this.connections.push([this.btn_pause, conn]);
     conn = this.btn_restart.connect("clicked", Lang.bind(this, this._restart));
     this.connections.push([this.btn_restart, conn]);
+    conn = this.btn_settings.connect("clicked", Lang.bind(this, this._openCloseSettings));
+    this.connections.push([this.btn_settings, conn]);
   },
 
-  _update : function(){
+  _update : function(loop = true){
       var duration = this.task.time;
           this.task.currTime = this.task.currTime + 1;
           this.task.dateTime = new Date();
@@ -86,7 +99,9 @@ Task.prototype = {
           var pixels = Math.floor((this.task.currTime / duration) * PROGRESS_BAR_LENGTH);
           this.actor.set_style('background-color:' + this.task.color + '; background-position:' + pixels + 'px 0px;');
       }
-      this._time_count_id = Mainloop.timeout_add_seconds(1, Lang.bind(this, this._update));
+      if (loop){
+          this._time_count_id = Mainloop.timeout_add_seconds(1, Lang.bind(this, this._update));
+      }
   },
 
   _startStop : function(){
@@ -112,6 +127,24 @@ Task.prototype = {
       this.task.running = false;
       Mainloop.source_remove(this._time_count_id);
       this._startStop();
+  },
+
+  _openCloseSettings : function(){
+    if (this.settingsOpen){
+      this.emit('closeSettings_signal');
+      this.btn_delete.hide();
+      this.btn_restart.show();
+      this.btn_play.show();
+      this.buttonBox.set_style("");
+    } else {
+      this.emit('settings_signal', this.task);
+      this.btn_play.hide();
+      this.btn_pause.hide();
+      this.btn_restart.hide();
+      this.btn_delete.show();
+      this.buttonBox.set_style("padding-left:52px");
+    }
+    this.settingsOpen = !this.settingsOpen;
   },
 
   destroy: function(){
