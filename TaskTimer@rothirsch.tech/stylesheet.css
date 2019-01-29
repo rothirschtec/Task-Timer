@@ -66,7 +66,6 @@
 }
 
 .settings-box {
-  margin-bottom: 10px;
   padding-left: 15px;
   padding-right: 15px;
   width: 399px;
@@ -83,16 +82,22 @@
 }
 
 .weekday-label {
+  margin-bottom: 5px;
   font-size: 12px;
-  width: 57px;
+  width: 45px;
   text-align: center;
   text-decoration: underline;
 }
 
 .weekday-times {
   font-size: 10px;
-  width: 57px;
+  width: 45px;
   text-align: center;
+}
+
+.weekday-header {
+  font-size: 10px;
+  width: 45px;
 }
 
 .button-box {
@@ -100,6 +105,16 @@
   width: 100px;
   text-align: center;
   spacing: 10px;
+}
+
+.description-label {
+  width: 400px;
+  text-align: center;
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  padding: 0, 0, 0, 0;
+  margin: 0, 0, 0, 0;
 }
 
 .task-buttons {

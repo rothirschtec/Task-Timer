@@ -164,20 +164,22 @@ TaskTimer.prototype = {
     let id = this.next_id;
     let color = Utils.generate_color();
     let weekdays = {
-      "sunday": "0:00 / 0:00",
-      "monday": "0:00 / 0:00",
-      "tuesday": "0:00 / 0:00",
-      "wednesday": "0:00 / 0:00",
-      "thursday": "0:00 / 0:00",
-      "friday": "0:00 / 0:00",
-      "saturday": "0:00 / 0:00"
+      "sunday": "0:00/0:00/0:00",
+      "monday": "0:00/0:00/0:00",
+      "tuesday": "0:00/0:00/0:00",
+      "wednesday": "0:00/0:00/0:00",
+      "thursday": "0:00/0:00/0:00",
+      "friday": "0:00/0:00/0:00",
+      "saturday": "0:00/0:00/0:00"
     };
     weekdays = Utils.updateWeeklyTimes(weekdays, (new Date).getDay(), 0, this.time*60);
     let task = {
       "id": id,
       "name": text,
+      "description": "Enter description here!",
       "time": this.time * 60,
       "currTime": 0,
+      "lastStop": 0,
       "color": color,
       "running": false,
       "dateTime": new Date(),
@@ -216,7 +218,7 @@ TaskTimer.prototype = {
       for (item of this.taskBox._getMenuItems()){
         if (item.task.id != task.id){
           item.actor.hide();
-        } else {
+        } else if (item.task.id == task.id) {
           this.taskSettings = new task_settings.TaskSettings(task);
           this.taskSettings.connect('update_signal', Lang.bind(this, this._update_from_settings));
           this.settingsBox.add_actor(this.taskSettings.actor);
@@ -317,13 +319,13 @@ TaskTimer.prototype = {
             this.listOfTasks[id].running = false;
             if ((new Date).getDay() == 1){
               this.listOfTasks[id].weekdays = {
-                "sunday": "0:00 / 0:00",
-                "monday": "0:00 / 0:00",
-                "tuesday": "0:00 / 0:00",
-                "wednesday": "0:00 / 0:00",
-                "thursday": "0:00 / 0:00",
-                "friday": "0:00 / 0:00",
-                "saturday": "0:00 / 0:00"
+                "sunday": "0:00/0:00/0:00",
+                "monday": "0:00/0:00/0:00",
+                "tuesday": "0:00/0:00/0:00",
+                "wednesday": "0:00/0:00/0:00",
+                "thursday": "0:00/0:00/0:00",
+                "friday": "0:00/0:00/0:00",
+                "saturday": "0:00/0:00/0:00"
               };
             }
         }

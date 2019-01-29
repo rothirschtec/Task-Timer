@@ -22,28 +22,38 @@ function convertTime(time){
     return hStr + ":" + minStr;
 }
 
-function updateWeeklyTimes(weekdays, day, currTime, totalTime){
+function calcTotal(weekdays){
+  var totalMax = 0;
+  var totalCurr = 0;
+  for (var i in weekdays){
+    totalCurr += parseInt(weekdays[i].split("/")[0].split(":")[0]*60*60) + parseInt(weekdays[i].split("/")[0].split(":")[1]*60);
+    totalMax += parseInt(weekdays[i].split("/")[1].split(":")[0]*60*60) + parseInt(weekdays[i].split("/")[1].split(":")[1]*60);
+  }
+  return convertTime(totalCurr) + "\n" + convertTime(totalMax);
+}
+
+function updateWeeklyTimes(weekdays, day, currTime, totalTime, lastStop){
     switch(day) {
       case 0:
-        weekdays.sunday = convertTime(currTime) + " / " + convertTime(totalTime);
+        weekdays.sunday = convertTime(currTime) + "/" + convertTime(totalTime) + "/" + convertTime(lastStop);
         break;
       case 1:
-        weekdays.monday = convertTime(currTime) + " / " + convertTime(totalTime);
+        weekdays.monday = convertTime(currTime) + "/" + convertTime(totalTime) + "/" + convertTime(lastStop);
         break;
       case 2:
-        weekdays.tuesday = convertTime(currTime) + " / " + convertTime(totalTime);
+        weekdays.tuesday = convertTime(currTime) + "/" + convertTime(totalTime) + "/" + convertTime(lastStop);
         break;
       case 3:
-        weekdays.wednesday = convertTime(currTime) + " / " + convertTime(totalTime);
+        weekdays.wednesday = convertTime(currTime) + "/" + convertTime(totalTime) + "/" + convertTime(lastStop);
         break;
       case 4:
-        weekdays.thursday = convertTime(currTime) + " / " + convertTime(totalTime);
+        weekdays.thursday = convertTime(currTime) + "/" + convertTime(totalTime) + "/" + convertTime(lastStop);
         break;
       case 5:
-        weekdays.friday = convertTime(currTime) + " / " + convertTime(totalTime);
+        weekdays.friday = convertTime(currTime) + "/" + convertTime(totalTime) + "/" + convertTime(lastStop);
         break;
       case 6:
-        weekdays.saturday = convertTime(currTime) + " / " + convertTime(totalTime);
+        weekdays.saturday = convertTime(currTime) + "/" + convertTime(totalTime);
         break;
     }
     return weekdays;

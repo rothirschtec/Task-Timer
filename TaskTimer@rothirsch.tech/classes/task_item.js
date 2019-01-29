@@ -32,7 +32,7 @@ Task.prototype = {
     this.label.add_style_class_name("label");
     this.durationLabel = new St.Label();
     this.durationLabel.add_style_class_name("durationLabel");
-    this.durationLabel.text = Utils.convertTime(this.task.currTime) + "  / " + Utils.convertTime(this.task.time);
+    this.durationLabel.text = Utils.convertTime(this.task.currTime) + "/" + Utils.convertTime(this.task.time);
     this.actor.add_actor(this.durationLabel);
     var pixels = Math.floor((this.task.currTime / this.task.time) * PROGRESS_BAR_LENGTH);
     this.actor.set_style('background-color:' + this.task.color + '; background-position:' + pixels + 'px 0px;');
@@ -83,9 +83,9 @@ Task.prototype = {
       var duration = this.task.time;
           this.task.currTime = this.task.currTime + 1;
           this.task.dateTime = new Date();
-          this.task.weekdays = Utils.updateWeeklyTimes(this.task.weekdays, (new Date).getDay(), this.task.currTime, this.task.time);
+          this.task.weekdays = Utils.updateWeeklyTimes(this.task.weekdays, (new Date).getDay(), this.task.currTime, this.task.time, this.task.lastStop);
           this.emit('update_signal', this.task);
-          this.durationLabel.text = Utils.convertTime(this.task.currTime) + "  / " + Utils.convertTime(this.task.time);
+          this.durationLabel.text = Utils.convertTime(this.task.currTime) + "/" + Utils.convertTime(this.task.time);
 
       if (this.task.currTime == duration){
           Main.notify("Time limit of " + this.task.name + " reached!");
@@ -115,6 +115,8 @@ Task.prototype = {
         if (this.task.currTime > this.task.time){
             this.actor.set_style('background-color:' + this.task.color + '; background-position: 400px 0px;');
         }
+        this.task.lastStop = this.task.currTime;
+        this.task.weekdays = Utils.updateWeeklyTimes(this.task.weekdays, (new Date).getDay(), this.task.currTime, this.task.time, this.task.lastStop);
         this.btn_play.show();
         this.btn_pause.hide();
         this.emit('update_signal', this.task);
