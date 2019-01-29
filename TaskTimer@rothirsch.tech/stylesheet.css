@@ -59,10 +59,11 @@
 }
 
 .label {
-  width: 150px;
+  width: 120px;
 }
 .durationLabel {
-  width: 100px;
+  text-align: center;
+  width: 140px;
 }
 
 .settings-box {
@@ -101,7 +102,7 @@
 }
 
 .button-box {
-  padding-left: 30px;
+  padding-left: 20px;
   width: 100px;
   text-align: center;
   spacing: 10px;

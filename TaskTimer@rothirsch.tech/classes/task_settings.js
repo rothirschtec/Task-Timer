@@ -70,36 +70,36 @@ TaskSettings.prototype = {
       weekLabel.add_style_class_name("weekday-label");
       this.weeklyLabels.add_actor(weekLabel);
 
-      let headerLabel = new St.Label({text:_("Current:\nMax:\nLast Stop:")});
+      let headerLabel = new St.Label({text:_("Current:\nMax:")});
       headerLabel.add_style_class_name("weekday-header");
       this.weeklyNumbers.add_actor(headerLabel);
       this.mondayLabel = new St.Label();
       this.mondayLabel.add_style_class_name("weekday-times");
-      this.mondayLabel.text = this.task.weekdays.monday.split("/")[0] + "\n" + this.task.weekdays.monday.split("/")[1] + "\n" + this.task.weekdays.monday.split("/")[2];
+      this.mondayLabel.text = this.task.weekdays.monday.split("/")[0] + "\n" + this.task.weekdays.monday.split("/")[1];
       this.weeklyNumbers.add_actor(this.mondayLabel);
       this.tuesdayLabel = new St.Label();
       this.tuesdayLabel.add_style_class_name("weekday-times");
-      this.tuesdayLabel.text = this.task.weekdays.tuesday.split("/")[0] + "\n" + this.task.weekdays.tuesday.split("/")[1] + "\n" + this.task.weekdays.tuesday.split("/")[2];
+      this.tuesdayLabel.text = this.task.weekdays.tuesday.split("/")[0] + "\n" + this.task.weekdays.tuesday.split("/")[1];
       this.weeklyNumbers.add_actor(this.tuesdayLabel);
       this.wednesdayLabel = new St.Label();
       this.wednesdayLabel.add_style_class_name("weekday-times");
-      this.wednesdayLabel.text = this.task.weekdays.wednesday.split("/")[0] + "\n" + this.task.weekdays.wednesday.split("/")[1] + "\n" + this.task.weekdays.wednesday.split("/")[2];
+      this.wednesdayLabel.text = this.task.weekdays.wednesday.split("/")[0] + "\n" + this.task.weekdays.wednesday.split("/")[1];
       this.weeklyNumbers.add_actor(this.wednesdayLabel);
       this.thursdayLabel = new St.Label();
       this.thursdayLabel.add_style_class_name("weekday-times");
-      this.thursdayLabel.text = this.task.weekdays.thursday.split("/")[0] + "\n" + this.task.weekdays.thursday.split("/")[1] + "\n" + this.task.weekdays.thursday.split("/")[2];
+      this.thursdayLabel.text = this.task.weekdays.thursday.split("/")[0] + "\n" + this.task.weekdays.thursday.split("/")[1];
       this.weeklyNumbers.add_actor(this.thursdayLabel);
       this.fridayLabel = new St.Label();
       this.fridayLabel.add_style_class_name("weekday-times");
-      this.fridayLabel.text = this.task.weekdays.friday.split("/")[0] + "\n" + this.task.weekdays.friday.split("/")[1] + "\n" + this.task.weekdays.friday.split("/")[2];
+      this.fridayLabel.text = this.task.weekdays.friday.split("/")[0] + "\n" + this.task.weekdays.friday.split("/")[1];
       this.weeklyNumbers.add_actor(this.fridayLabel);
       this.saturdayLabel = new St.Label();
       this.saturdayLabel.add_style_class_name("weekday-times");
-      this.saturdayLabel.text = this.task.weekdays.saturday.split("/")[0] + "\n" + this.task.weekdays.saturday.split("/")[1] + "\n" + this.task.weekdays.saturday.split("/")[2];
+      this.saturdayLabel.text = this.task.weekdays.saturday.split("/")[0] + "\n" + this.task.weekdays.saturday.split("/")[1];
       this.weeklyNumbers.add_actor(this.saturdayLabel);
       this.sundayLabel = new St.Label();
       this.sundayLabel.add_style_class_name("weekday-times");
-      this.sundayLabel.text = this.task.weekdays.sunday.split("/")[0] + "\n" + this.task.weekdays.sunday.split("/")[1] + "\n" + this.task.weekdays.sunday.split("/")[2];
+      this.sundayLabel.text = this.task.weekdays.sunday.split("/")[0] + "\n" + this.task.weekdays.sunday.split("/")[1];
       this.weeklyNumbers.add_actor(this.sundayLabel);
       this.totalLabel = new St.Label();
       this.totalLabel.add_style_class_name("weekday-times");
@@ -142,13 +142,13 @@ TaskSettings.prototype = {
   },
 
   _updateWeeklyTimes : function(){
-      this.mondayLabel.text = this.task.weekdays.monday.split("/")[0] + "\n" + this.task.weekdays.monday.split("/")[1] + "\n" + this.task.weekdays.monday.split("/")[2];
-      this.tuesdayLabel.text = this.task.weekdays.tuesday.split("/")[0] + "\n" + this.task.weekdays.tuesday.split("/")[1] + "\n" + this.task.weekdays.tuesday.split("/")[2];
-      this.wednesdayLabel.text = this.task.weekdays.wednesday.split("/")[0] + "\n" + this.task.weekdays.wednesday.split("/")[1] + "\n" + this.task.weekdays.wednesday.split("/")[2];
-      this.thursdayLabel.text = this.task.weekdays.thursday.split("/")[0] + "\n" + this.task.weekdays.thursday.split("/")[1] + "\n" + this.task.weekdays.thursday.split("/")[2];
-      this.fridayLabel.text = this.task.weekdays.friday.split("/")[0] + "\n" + this.task.weekdays.friday.split("/")[1] + "\n" + this.task.weekdays.friday.split("/")[2];
-      this.saturdayLabel.text = this.task.weekdays.saturday.split("/")[0] + "\n" + this.task.weekdays.saturday.split("/")[1] + "\n" + this.task.weekdays.saturday.split("/")[2];
-      this.sundayLabel.text = this.task.weekdays.sunday.split("/")[0] + "\n" + this.task.weekdays.sunday.split("/")[1] + "\n" + this.task.weekdays.sunday.split("/")[2];
+      this.mondayLabel.text = this.task.weekdays.monday.split("/")[0] + "\n" + this.task.weekdays.monday.split("/")[1];
+      this.tuesdayLabel.text = this.task.weekdays.tuesday.split("/")[0] + "\n" + this.task.weekdays.tuesday.split("/")[1];
+      this.wednesdayLabel.text = this.task.weekdays.wednesday.split("/")[0] + "\n" + this.task.weekdays.wednesday.split("/")[1];
+      this.thursdayLabel.text = this.task.weekdays.thursday.split("/")[0] + "\n" + this.task.weekdays.thursday.split("/")[1];
+      this.fridayLabel.text = this.task.weekdays.friday.split("/")[0] + "\n" + this.task.weekdays.friday.split("/")[1];
+      this.saturdayLabel.text = this.task.weekdays.saturday.split("/")[0] + "\n" + this.task.weekdays.saturday.split("/")[1];
+      this.sundayLabel.text = this.task.weekdays.sunday.split("/")[0] + "\n" + this.task.weekdays.sunday.split("/")[1];
       this.totalLabel.text = Utils.calcTotal(this.task.weekdays);
   },
 

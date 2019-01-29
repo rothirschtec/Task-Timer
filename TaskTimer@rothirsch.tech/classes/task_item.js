@@ -32,7 +32,7 @@ Task.prototype = {
     this.label.add_style_class_name("label");
     this.durationLabel = new St.Label();
     this.durationLabel.add_style_class_name("durationLabel");
-    this.durationLabel.text = Utils.convertTime(this.task.currTime) + "/" + Utils.convertTime(this.task.time);
+    this.durationLabel.text = Utils.convertTime(this.task.lastStop) + " / " + Utils.convertTime(this.task.currTime) + " / " + Utils.convertTime(this.task.time);
     this.actor.add_actor(this.durationLabel);
     var pixels = Math.floor((this.task.currTime / this.task.time) * PROGRESS_BAR_LENGTH);
     this.actor.set_style('background-color:' + this.task.color + '; background-position:' + pixels + 'px 0px;');
@@ -85,7 +85,7 @@ Task.prototype = {
           this.task.dateTime = new Date();
           this.task.weekdays = Utils.updateWeeklyTimes(this.task.weekdays, (new Date).getDay(), this.task.currTime, this.task.time, this.task.lastStop);
           this.emit('update_signal', this.task);
-          this.durationLabel.text = Utils.convertTime(this.task.currTime) + "/" + Utils.convertTime(this.task.time);
+          this.durationLabel.text = Utils.convertTime(this.task.lastStop) + " / " + Utils.convertTime(this.task.currTime) + " / " + Utils.convertTime(this.task.time);
 
       if (this.task.currTime == duration){
           Main.notify("Time limit of " + this.task.name + " reached!");
@@ -117,6 +117,7 @@ Task.prototype = {
         }
         this.task.lastStop = this.task.currTime;
         this.task.weekdays = Utils.updateWeeklyTimes(this.task.weekdays, (new Date).getDay(), this.task.currTime, this.task.time, this.task.lastStop);
+        this.durationLabel.text = Utils.convertTime(this.task.lastStop) + " / " + Utils.convertTime(this.task.currTime) + " / " + Utils.convertTime(this.task.time);
         this.btn_play.show();
         this.btn_pause.hide();
         this.emit('update_signal', this.task);
@@ -144,7 +145,7 @@ Task.prototype = {
       this.btn_pause.hide();
       this.btn_restart.hide();
       this.btn_delete.show();
-      this.buttonBox.set_style("padding-left:52px");
+      this.buttonBox.set_style("padding-left:42px");
     }
     this.settingsOpen = !this.settingsOpen;
   },

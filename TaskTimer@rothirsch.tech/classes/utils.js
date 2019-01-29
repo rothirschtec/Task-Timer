@@ -18,8 +18,12 @@ function convertTime(time){
     } else {
         minStr = minutes.toString();
     }
-    hStr = hours.toString();
-    return hStr + ":" + minStr;
+    if (hours < 10){
+      hourStr = " " + hours.toString();
+    } else {
+      hourStr = hours.toString();
+    }
+    return hourStr + ":" + minStr;
 }
 
 function calcTotal(weekdays){

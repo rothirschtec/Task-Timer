@@ -164,13 +164,13 @@ TaskTimer.prototype = {
     let id = this.next_id;
     let color = Utils.generate_color();
     let weekdays = {
-      "sunday": "0:00/0:00/0:00",
-      "monday": "0:00/0:00/0:00",
-      "tuesday": "0:00/0:00/0:00",
-      "wednesday": "0:00/0:00/0:00",
-      "thursday": "0:00/0:00/0:00",
-      "friday": "0:00/0:00/0:00",
-      "saturday": "0:00/0:00/0:00"
+      "sunday": "0:00/0:00",
+      "monday": "0:00/0:00",
+      "tuesday": "0:00/0:00",
+      "wednesday": "0:00/0:00",
+      "thursday": "0:00/0:00",
+      "friday": "0:00/0:00",
+      "saturday": "0:00/0:00"
     };
     weekdays = Utils.updateWeeklyTimes(weekdays, (new Date).getDay(), 0, this.time*60);
     let task = {
@@ -319,13 +319,13 @@ TaskTimer.prototype = {
             this.listOfTasks[id].running = false;
             if ((new Date).getDay() == 1){
               this.listOfTasks[id].weekdays = {
-                "sunday": "0:00/0:00/0:00",
-                "monday": "0:00/0:00/0:00",
-                "tuesday": "0:00/0:00/0:00",
-                "wednesday": "0:00/0:00/0:00",
-                "thursday": "0:00/0:00/0:00",
-                "friday": "0:00/0:00/0:00",
-                "saturday": "0:00/0:00/0:00"
+                "sunday": "0:00/0:00",
+                "monday": "0:00/0:00",
+                "tuesday": "0:00/0:00",
+                "wednesday": "0:00/0:00",
+                "thursday": "0:00/0:00",
+                "friday": "0:00/0:00",
+                "saturday": "0:00/0:00"
               };
             }
         }
