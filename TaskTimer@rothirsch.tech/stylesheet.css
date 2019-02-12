@@ -110,9 +110,11 @@
 
 .description-label {
   width: 400px;
-  height: 100px;
   font-size: 12px;
-  word-wrap: break-word;
+  background: transparent;
+	border: none;
+	padding: 0, 0, 0, 0;
+	margin: 0, 0, 0, 0;
 }
 
 .task-buttons {
