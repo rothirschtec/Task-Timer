@@ -30,6 +30,10 @@ TaskSettings.prototype = {
       //Set up Boxlayouts for the settings
       this.descriptionBox = new St.BoxLayout({style_class: 'settings-box'});
       this.description = new St.Entry({style_class: 'description-label', text: this.task.description, can_focus: true});
+      this.descriptionBtn = new St.Button();
+      //this.descriptionBox.add_actor(this.descriptionBtn);
+      this.descriptionBtn.set_label(this.task.description + "\nHello");
+      this.descriptionBtn.add_style_class_name("settings-label");
       this.descriptionBox.add_actor(this.description);
       this.weeklyLabels = new St.BoxLayout();
       this.weeklyLabels.set_vertical(false);

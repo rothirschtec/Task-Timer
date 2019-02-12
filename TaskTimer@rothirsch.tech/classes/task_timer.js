@@ -317,7 +317,8 @@ TaskTimer.prototype = {
         } else {
             this.listOfTasks[id].currTime = 0;
             this.listOfTasks[id].running = false;
-            if ((new Date).getDay() == 1){
+            this.listOfTasks[id].lastStop = 0;
+            if (Utils.isNewWeek(new Date(this.listOfTasks[id].dateTime))){
               this.listOfTasks[id].weekdays = {
                 "sunday": "0:00/0:00",
                 "monday": "0:00/0:00",

@@ -1,3 +1,4 @@
+const Main = imports.ui.main;
 
 function generate_color() {
     let red = Math.floor(Math.random()*255).toString(16);
@@ -71,4 +72,18 @@ function elapsedTimeInSeconds(date){
 function isSameDay(date){
   now = new Date();
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDay() === now.getDay();
+}
+
+function isNewWeek(date){
+  if (!isSameDay(date)){
+    var today = (new Date()).getDay();
+    var lastDay = date.getDay();
+    var diffDays = Math.round(Math.abs((new Date() - date)/(24*60*60*1000)));
+    if (today == 0) {today = 7};
+    if (lastDay == 0) {lastDay = 7};
+    if (today <= today || diffdays > 7){
+      return true;
+    }
+  }
+  return false;
 }
