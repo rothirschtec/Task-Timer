@@ -87,3 +87,30 @@ function isNewWeek(date){
   }
   return false;
 }
+
+function addNewLines(text){
+  var POS = 60;
+  if (text.length > POS){
+    var count = 1;
+    var newText = "";
+    var lineText = "";
+    var words = text.split(" ");
+    for (var i = 0; i < words.length; i++){
+      if (!(lineText.length + words[i].length + 1 > POS)){
+        lineText += " " + words[i];
+      } else if (words[i].length > POS){
+        var slice = POS - newText.length - 1;
+        lineText += " " + [words[i].slice(0, slice), "-"].join("");
+        newText += lineText + "\n ";
+        lineText = [words[i].slice(slice)];
+      } else {
+        newText += lineText + "\n ";
+        lineText = words[i];
+      }
+    }
+    newText += lineText;
+    return newText;
+  } else {
+    return text;
+  }
+}

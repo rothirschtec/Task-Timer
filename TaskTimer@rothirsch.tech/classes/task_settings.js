@@ -16,8 +16,11 @@ const Utils = Extension.imports.classes.utils;
 
 const ADD_ICON = Gio.icon_new_for_string(Extension.path + "/icons/add_task_icon.png");
 
-function TaskSettings(task, totalTime){
-  this._init(task);
+const KEY_RETURN = 65293;
+const KEY_ENTER = 65421;
+
+  function TaskSettings(task, totalTime){
+    this._init(task, totalTime);
 }
 
 TaskSettings.prototype = {
@@ -30,10 +33,12 @@ TaskSettings.prototype = {
       //Set up Boxlayouts for the settings
       this.descriptionBox = new St.BoxLayout({style_class: 'settings-box'});
       this.description = new St.Entry({style_class: 'description-label', text: this.task.description, can_focus: true});
+      this.description.hide();
       this.descriptionBtn = new St.Button();
-      //this.descriptionBox.add_actor(this.descriptionBtn);
-      this.descriptionBtn.set_label(this.task.description + "\nHello");
-      this.descriptionBtn.add_style_class_name("settings-label");
+      this.descriptionBtn.connect("clicked", Lang.bind(this, this._clickDescription));
+      this.descriptionBox.add_actor(this.descriptionBtn);
+      this.descriptionBtn.set_label(Utils.addNewLines(this.task.description));
+      this.descriptionBtn.add_style_class_name("description-btn");
       this.descriptionBox.add_actor(this.description);
       this.weeklyLabels = new St.BoxLayout();
       this.weeklyLabels.set_vertical(false);
@@ -128,10 +133,25 @@ TaskSettings.prototype = {
 
       this.descriptionText = this.description.clutter_text;
       this.descriptionText.connect('key_focus_out', Lang.bind(this, this._changeDescription));
+      this.descriptionText.connect('key-press-event', Lang.bind(this, this._enterDescription));
+  },
+
+  _clickDescription : function(){
+    this.description.show();
+    this.descriptionBtn.hide();
+  },
+
+  _enterDescription : function(o, e){
+    let symbol = e.get_key_symbol();
+    if (symbol == KEY_RETURN || symbol == KEY_ENTER) {
+      this.description.hide();
+      this.descriptionBtn.show();
+    }
   },
 
   _changeDescription : function(){
       this.task.description = this.description.text;
+      this.descriptionBtn.set_label(Utils.addNewLines(this.task.description));
       if (this.task.description == ""){
         this.task.description = "Enter description here!";
       }

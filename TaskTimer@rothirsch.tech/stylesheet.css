@@ -109,12 +109,14 @@
 }
 
 .description-label {
+  width: 390px;
+  font-size: 12px;
+}
+
+.description-btn {
   width: 400px;
   font-size: 12px;
-  background: transparent;
-	border: none;
-	padding: 0, 0, 0, 0;
-	margin: 0, 0, 0, 0;
+
 }
 
 .task-buttons {
