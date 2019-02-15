@@ -15,6 +15,9 @@ const PLAY_ICON = Gio.icon_new_for_string(Extension.path + "/icons/play_icon.png
 const PAUSE_ICON = Gio.icon_new_for_string(Extension.path + "/icons/pause_icon.png");
 const RESTART_ICON = Gio.icon_new_for_string(Extension.path + "/icons/restart_icon.png");
 const SETTINGS_ICON = Gio.icon_new_for_string(Extension.path + "/icons/settings_icon.png");
+const UP_ICON = Gio.icon_new_for_string(Extension.path + "/icons/up_icon.png");
+const DOWN_ICON = Gio.icon_new_for_string(Extension.path + "/icons/down_icon.png");
+
 const PROGRESS_BAR_LENGTH = 400;
 
 
@@ -26,6 +29,7 @@ Task.prototype = {
   __proto__: PopupMenu.PopupMenuItem.prototype,
   _init: function(task){
     this.task = task;
+    this.isTask = true;
     this.settingsOpen = false;
     PopupMenu.PopupMenuItem.prototype._init.call(this, this.task.name, false);
     this.actor.add_style_class_name("task");
@@ -57,14 +61,27 @@ Task.prototype = {
     this.btn_settings = new St.Button({label: ""});
     icon = new St.Icon({icon_size: 12, gicon: SETTINGS_ICON,style_class: 'task-buttons'});
     this.btn_settings.add_actor(icon);
+    this.btn_up = new St.Button({label: ""});
+    icon = new St.Icon({gicon: UP_ICON,style_class: 'move-buttons'});
+    this.btn_up.add_actor(icon);
+    this.btn_down = new St.Button({label: ""});
+    icon = new St.Icon({gicon: DOWN_ICON,style_class: 'move-buttons'});
+    this.btn_down.add_actor(icon);
+    this.moveBox = new St.BoxLayout();
+    this.moveBox.add_style_class_name("move-box");
+    this.moveBox.set_vertical(true);
+    this.moveBox.add_actor(this.btn_up);
+    this.moveBox.add_actor(this.btn_down);
     this.buttonBox.add_actor(this.btn_play);
     this.buttonBox.add_actor(this.btn_pause);
     this.buttonBox.add_actor(this.btn_restart);
     this.buttonBox.add_actor(this.btn_delete);
+    this.buttonBox.add_actor(this.moveBox);
     this.buttonBox.add_actor(this.btn_settings);
     this.actor.add_actor(this.buttonBox);
     this.btn_pause.hide();
     this.btn_delete.hide();
+    this.moveBox.hide();
 
     //connect buttons to events
     let conn = this.btn_delete.connect('clicked', Lang.bind(this, this._delete_task));
@@ -76,6 +93,10 @@ Task.prototype = {
     conn = this.btn_restart.connect("clicked", Lang.bind(this, this._restart));
     this.connections.push([this.btn_restart, conn]);
     conn = this.btn_settings.connect("clicked", Lang.bind(this, this._openCloseSettings));
+    this.connections.push([this.btn_settings, conn]);
+    conn = this.btn_up.connect("clicked", Lang.bind(this, this._moveUp));
+    this.connections.push([this.btn_settings, conn]);
+    conn = this.btn_down.connect("clicked", Lang.bind(this, this._moveDown));
     this.connections.push([this.btn_settings, conn]);
   },
 
@@ -132,20 +153,31 @@ Task.prototype = {
       this._startStop();
   },
 
+  _moveUp : function() {
+      this.emit('moveUp_signal', this.task);
+  },
+
+  _moveDown : function() {
+      this.emit('moveDown_signal', this.task);
+  },
+
   _openCloseSettings : function(){
     if (this.settingsOpen){
-      this.emit('closeSettings_signal');
+      this.emit('closeSettings_signal', this.task);
       this.btn_delete.hide();
+      this.moveBox.hide();
       this.btn_restart.show();
       this.btn_play.show();
-      this.buttonBox.set_style("");
     } else {
+      if (this.task.running){
+        this._startStop();
+      }
       this.emit('settings_signal', this.task);
+      this.moveBox.show();
       this.btn_play.hide();
       this.btn_pause.hide();
       this.btn_restart.hide();
       this.btn_delete.show();
-      this.buttonBox.set_style("padding-left:42px");
     }
     this.settingsOpen = !this.settingsOpen;
   },

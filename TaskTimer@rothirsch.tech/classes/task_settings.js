@@ -124,12 +124,14 @@ TaskSettings.prototype = {
       this.currTimeSlider.connect('value-changed', Lang.bind(this, this._onCurrTimeChange));
       this.currTimeBox.add_actor(label);
       this.currTimeBox.add_actor(this.currTimeSlider.actor);
+      this.actor.add_actor((new PopupMenu.PopupSeparatorMenuItem).actor);
       this.actor.add_actor(this.descriptionBox);
       this.actor.add_actor((new PopupMenu.PopupSeparatorMenuItem).actor);
       this.actor.add_actor(this.weeklyLabels);
       this.actor.add_actor(this.weeklyNumbers);
       this.actor.add_actor((new PopupMenu.PopupSeparatorMenuItem).actor);
-      this.actor.add_actor(this.currTimeBox)
+      this.actor.add_actor(this.currTimeBox);
+      this.actor.add_actor((new PopupMenu.PopupSeparatorMenuItem).actor);
 
       this.descriptionText = this.description.clutter_text;
       this.descriptionText.connect('key_focus_out', Lang.bind(this, this._changeDescription));
@@ -177,8 +179,11 @@ TaskSettings.prototype = {
   },
 
   destroy : function() {
+      this.descriptionBtn.disconnect('clicked');
       this.currTimeSlider.actor.disconnect('value-changed');
       this.descriptionText.disconnect('key_focus_out');
+      this.descriptionText.disconnect('key_press_event');
+      this.actor.destroy();
   }
 
 }

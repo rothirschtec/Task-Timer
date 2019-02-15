@@ -109,7 +109,6 @@ TaskTimer.prototype = {
     this.newTaskBox.add_actor(this.timeLabel);
     this.newTaskBox.add_actor(this.newTask);
     this.newTaskBox.add_actor(this.btn_enter);
-    this.newTaskBox.add_actor
     this.mainBox.add_actor(this.btn_add);
     this.btn_add.connect('clicked', Lang.bind(this, this._onAddClicked));
     this.newTaskSection.actor.add_actor(this.timeHeader);
@@ -203,6 +202,8 @@ TaskTimer.prototype = {
     item.connect('stop_signal', Lang.bind(this, this._stop_all_but_current));
     item.connect('settings_signal', Lang.bind(this, this._settings));
     item.connect('closeSettings_signal', Lang.bind(this, this._closeSettings));
+    item.connect('moveUp_signal', Lang.bind(this, this._moveTaskUp));
+    item.connect('moveDown_signal', Lang.bind(this, this._moveTaskDown));
     if (task.running){
       item.task.running = false;
       item._startStop();
@@ -210,38 +211,71 @@ TaskTimer.prototype = {
   },
 
   _settings : function(o, task){
-      this._stop_all();
+      for (item of this.taskBox._getMenuItems()){
+        if (item.task.id != task.id && item.settingsOpen){
+            item._openCloseSettings();
+        }
+      }
       this.btn_add.hide();
       this.newTaskSection.actor.hide();
-      this.settingsBox = new St.BoxLayout();
-      this.mainBox.add_actor(this.settingsBox);
+      let i = 1;
       for (item of this.taskBox._getMenuItems()){
-        if (item.task.id != task.id){
-          item.actor.hide();
-        } else if (item.task.id == task.id) {
+        if (item.task.id == task.id) {
           this.taskSettings = new task_settings.TaskSettings(task);
           this.taskSettings.connect('update_signal', Lang.bind(this, this._update_from_settings));
-          this.settingsBox.add_actor(this.taskSettings.actor);
+          this.taskBox.addMenuItem(this.taskSettings, i);
         }
+        i++;
       }
   },
 
-  _closeSettings : function(){
-    this.taskSettings.actor.disconnect('update_signal');
-    this.taskSettings.destroy();
-    this.settingsBox.destroy();
-    this.btn_add.show();
-      for (item of this.taskBox._getMenuItems()){
-        item.actor.show();
-      }
+  _closeSettings : function(o, task){
+    if (this.taskSettings != null){
+      this.taskSettings.actor.disconnect('update_signal');
+      this.taskSettings.destroy();
+      this.btn_add.show();
+    }
   },
 
-  _stop_all: function(){
-      for (item of this.taskBox._getMenuItems()){
-          if (item.task.running){
-            item._startStop();
-        }
+  _moveTaskUp : function(o, task){
+    var i = 0;
+    for (item of this.taskBox._getMenuItems()){
+      if (item.task.id == task.id){
+        this.taskBox.moveMenuItem(this.taskSettings, i-1);
+        this.taskBox.moveMenuItem(item, i-1);
+        break;
       }
+      i++;
+    }
+    this._updateList();
+  },
+
+  _moveTaskDown : function(o, task){
+    var i = 0;
+    for (item of this.taskBox._getMenuItems()){
+      if (item.task.id == task.id){
+        this.taskBox.moveMenuItem(item, i+2);
+        this.taskBox.moveMenuItem(this.taskSettings, i+2);
+        break;
+      }
+      i++;
+    }
+    this._updateList();
+  },
+
+_updateList : function(){
+    let i = 0;
+    for (var id in this.listOfTasks){
+      delete this.listOfTasks[id];
+    }
+    for (item of this.taskBox._getMenuItems()){
+      if (item.isTask){
+        item.task.id = i;
+        this.listOfTasks[i] = item.task;
+        i++
+      }
+    }
+    this._save();
   },
 
   _stop_all_but_current: function(o, task){
@@ -344,6 +378,8 @@ TaskTimer.prototype = {
         task.actor.disconnect('update_signal');
         task.actor.disconnect('stop_signal');
         task.actor.disconnect('settings_signal');
+        task.actor.disconnect('moveUp_signal');
+        task.actor.disconnect('moveDown_signal');
         task.destroy();
     }
     this.taskBox.removeAll();
