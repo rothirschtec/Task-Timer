@@ -81,7 +81,7 @@ function isNewWeek(date){
     var diffDays = Math.round(Math.abs((new Date() - date)/(24*60*60*1000)));
     if (today == 0) {today = 7};
     if (lastDay == 0) {lastDay = 7};
-    if (today <= today || diffdays > 7){
+    if (today <= lastDay || diffdays > 7){
       return true;
     }
   }
