@@ -219,9 +219,17 @@ TaskTimer.prototype = {
       this.btn_add.hide();
       this.newTaskSection.actor.hide();
       let i = 1;
+      var spentTime = 0;
+      for (var id in this.listOfTasks){
+        if (this.listOfTasks[id].currTime > this.listOfTasks[id].time){
+          spentTime += this.listOfTasks[id].currTime;
+        } else {
+          spentTime += this.listOfTasks[id].time;
+        }
+      }
       for (item of this.taskBox._getMenuItems()){
         if (item.task.id == task.id) {
-          this.taskSettings = new task_settings.TaskSettings(task);
+          this.taskSettings = new task_settings.TaskSettings(task, spentTime);
           this.taskSettings.connect('update_signal', Lang.bind(this, this._update_from_settings));
           this.taskBox.addMenuItem(this.taskSettings, i);
         }

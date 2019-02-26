@@ -18,18 +18,21 @@ const ADD_ICON = Gio.icon_new_for_string(Extension.path + "/icons/add_task_icon.
 
 const KEY_RETURN = 65293;
 const KEY_ENTER = 65421;
+const SECONDS_OF_DAY = 86400;
 
   function TaskSettings(task, totalTime){
+    this.totalTime = totalTime
+    this.restTime = SECONDS_OF_DAY - this.totalTime;
+    this.currTime = task.currTime;
     this._init(task, totalTime);
 }
 
 TaskSettings.prototype = {
   __proto__: PopupMenu.PopupMenuSection.prototype,
 
-  _init : function(task, totalTime){
+  _init : function(task){
       PopupMenu.PopupMenuSection.prototype._init.call(this);
       this.task = task;
-      this.totalTime = totalTime;
       //Set up Boxlayouts for the settings
       this.descriptionBox = new St.BoxLayout({style_class: 'settings-box'});
       this.description = new St.Entry({style_class: 'description-label', text: this.task.description, can_focus: true});
@@ -119,7 +122,7 @@ TaskSettings.prototype = {
       // Create Label and slider for current time _onSliderValueChange
       let label = new St.Label({text:_("Current time:")});
       label.add_style_class_name("settings-label");
-      this.currTimeSlider = new Slider.Slider(this.task.currTime/this.task.time);
+      this.currTimeSlider = new Slider.Slider(this.task.currTime/(this.restTime+(this.task.time > this.currTime ? this.task.time : this.currTime)));
       this.currTimeSlider.actor.add_style_class_name("time-slider");
       this.currTimeSlider.connect('value-changed', Lang.bind(this, this._onCurrTimeChange));
       this.currTimeBox.add_actor(label);
@@ -161,7 +164,7 @@ TaskSettings.prototype = {
   },
 
   _onCurrTimeChange : function(slider, value){
-    let time = Math.floor(value*(this.task.time/60));
+    let time = Math.floor(value*((this.restTime+(this.task.time > this.currTime ? this.task.time : this.currTime))/60));
     this.task.currTime = time*60;
     this.emit('update_signal', this.task);
     this._updateWeeklyTimes();
