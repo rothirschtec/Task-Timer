@@ -221,12 +221,15 @@ TaskTimer.prototype = {
       let i = 1;
       var spentTime = 0;
       for (var id in this.listOfTasks){
-        if (this.listOfTasks[id].currTime > this.listOfTasks[id].time){
-          spentTime += this.listOfTasks[id].currTime;
-        } else {
-          spentTime += this.listOfTasks[id].time;
+        if (id != task.id){
+          if (this.listOfTasks[id].currTime > this.listOfTasks[id].time){
+            spentTime += this.listOfTasks[id].currTime;
+          } else {
+            spentTime += this.listOfTasks[id].time;
+          }
         }
       }
+      Main.notify(Utils.convertTime(spentTime));
       for (item of this.taskBox._getMenuItems()){
         if (item.task.id == task.id) {
           this.taskSettings = new task_settings.TaskSettings(task, spentTime);

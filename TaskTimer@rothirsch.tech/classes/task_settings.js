@@ -21,18 +21,16 @@ const KEY_ENTER = 65421;
 const SECONDS_OF_DAY = 86400;
 
   function TaskSettings(task, totalTime){
-    this.totalTime = totalTime
-    this.restTime = SECONDS_OF_DAY - this.totalTime;
-    this.currTime = task.currTime;
     this._init(task, totalTime);
 }
 
 TaskSettings.prototype = {
   __proto__: PopupMenu.PopupMenuSection.prototype,
 
-  _init : function(task){
+  _init : function(task, totalTime){
       PopupMenu.PopupMenuSection.prototype._init.call(this);
       this.task = task;
+      this.restTime = SECONDS_OF_DAY - totalTime;
       //Set up Boxlayouts for the settings
       this.descriptionBox = new St.BoxLayout({style_class: 'settings-box'});
       this.description = new St.Entry({style_class: 'description-label', text: this.task.description, can_focus: true});
@@ -52,6 +50,9 @@ TaskSettings.prototype = {
       this.currTimeBox = new St.BoxLayout();
       this.currTimeBox.set_vertical(false);
       this.currTimeBox.add_style_class_name("settings-box");
+      this.totalTimeBox = new St.BoxLayout();
+      this.totalTimeBox.set_vertical(false);
+      this.totalTimeBox.add_style_class_name("settings-box");
       this.newNameBox = new St.BoxLayout();
       //Create view for weekly timeSlider
       let weekLabel = new St.Label({text:_("")});
@@ -122,11 +123,18 @@ TaskSettings.prototype = {
       // Create Label and slider for current time _onSliderValueChange
       let label = new St.Label({text:_("Current time:")});
       label.add_style_class_name("settings-label");
-      this.currTimeSlider = new Slider.Slider(this.task.currTime/(this.restTime+(this.task.time > this.currTime ? this.task.time : this.currTime)));
+      this.currTimeSlider = new Slider.Slider(this.task.currTime/(this.restTime));
       this.currTimeSlider.actor.add_style_class_name("time-slider");
       this.currTimeSlider.connect('value-changed', Lang.bind(this, this._onCurrTimeChange));
       this.currTimeBox.add_actor(label);
       this.currTimeBox.add_actor(this.currTimeSlider.actor);
+      label = new St.Label({text:_("Total time:")});
+      label.add_style_class_name("settings-label");
+      this.totalTimeSlider = new Slider.Slider(this.task.time/(this.restTime));
+      this.totalTimeSlider.actor.add_style_class_name("time-slider");
+      this.totalTimeSlider.connect('value-changed', Lang.bind(this, this._onTotalTimeChange));
+      this.totalTimeBox.add_actor(label);
+      this.totalTimeBox.add_actor(this.totalTimeSlider.actor);
       this.actor.add_actor((new PopupMenu.PopupSeparatorMenuItem).actor);
       this.actor.add_actor(this.descriptionBox);
       this.actor.add_actor((new PopupMenu.PopupSeparatorMenuItem).actor);
@@ -134,6 +142,7 @@ TaskSettings.prototype = {
       this.actor.add_actor(this.weeklyNumbers);
       this.actor.add_actor((new PopupMenu.PopupSeparatorMenuItem).actor);
       this.actor.add_actor(this.currTimeBox);
+      this.actor.add_actor(this.totalTimeBox);
       this.actor.add_actor((new PopupMenu.PopupSeparatorMenuItem).actor);
 
       this.descriptionText = this.description.clutter_text;
@@ -164,8 +173,15 @@ TaskSettings.prototype = {
   },
 
   _onCurrTimeChange : function(slider, value){
-    let time = Math.floor(value*((this.restTime+(this.task.time > this.currTime ? this.task.time : this.currTime))/60));
+    let time = Math.floor(value*(this.restTime/60));
     this.task.currTime = time*60;
+    this.emit('update_signal', this.task);
+    this._updateWeeklyTimes();
+  },
+
+  _onTotalTimeChange : function(slider, value){
+    let time = Math.floor(value*(this.restTime/60));
+    this.task.time = time*60;
     this.emit('update_signal', this.task);
     this._updateWeeklyTimes();
   },
