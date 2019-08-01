@@ -229,7 +229,7 @@ TaskTimer.prototype = {
           }
         }
       }
-      Main.notify(Utils.convertTime(spentTime));
+      //Main.notify(Utils.convertTime(spentTime));
       for (item of this.taskBox._getMenuItems()){
         if (item.task.id == task.id) {
           this.taskSettings = new task_settings.TaskSettings(task, spentTime);
