@@ -356,7 +356,7 @@ _updateList : function(){
         this.next_id = Math.max(this.next_id, id);
         if (Utils.isSameDay(new Date(this.listOfTasks[id].dateTime))){
             if (this.listOfTasks[id].running){
-              elapsedTime = Utils.elapsedTimeInSeconds(new Date(this.listOfTasks[id].dateTime));
+              let elapsedTime = Utils.elapsedTimeInSeconds(new Date(this.listOfTasks[id].dateTime));
               this.listOfTasks[id].currTime += elapsedTime;
           }
         } else {
