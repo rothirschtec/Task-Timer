@@ -21,10 +21,12 @@ const UNCHECK_ICON = Gio.icon_new_for_string('checkbox-symbolic');
 export const CheckboxItem = GObject.registerClass(
 {
     Signals: {
-        'delete_signal':   {},
-        'moveUp_signal':   {},
-        'moveDown_signal': {},
-        'update_signal':   {},
+        'delete_signal':        {},
+        'moveUp_signal':        {},
+        'moveDown_signal':      {},
+        'update_signal':        {},
+        'settings_signal':      {},
+        'closeSettings_signal': {},
     },
 },
 class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
@@ -52,6 +54,7 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
         }
 
         this.task = task;
+        this.settingsOpen = false;
         this._buildLayout();
         this._connectSignals();
     }
@@ -112,11 +115,19 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
             track_hover: true,
             child: new St.Icon({ gicon: DOWN_ICON }),
         });
+        this._gear = new St.Button({
+            style_class: 'task-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
+            child: new St.Icon({ gicon: GEAR_ICON }),
+        });
         
         const controlButtons = new St.BoxLayout();
         controlButtons.add_child(this._delete);
         controlButtons.add_child(this._up);
         controlButtons.add_child(this._down);
+        controlButtons.add_child(this._gear);
         
         // Add everything to the container
         this.add_child(this._name);
@@ -162,6 +173,23 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
             log("TaskTimer: Down checkbox item clicked");
             this.emit('moveDown_signal');
         });
+        this._gear.connect('clicked', this._onGearClicked.bind(this));
+    }
+    
+    _onGearClicked() {
+        log(`CheckboxItem: Gear clicked - task=${this.task.name}, settingsOpen=${this.settingsOpen}`);
+        
+        // Toggle settings state
+        this.settingsOpen = !this.settingsOpen;
+        
+        // Emit the right signal
+        if (this.settingsOpen) {
+            log("CheckboxItem: Emitting settings_signal");
+            this.emit('settings_signal');
+        } else {
+            log("CheckboxItem: Emitting closeSettings_signal");
+            this.emit('closeSettings_signal');
+        }
     }
 
     destroy() {

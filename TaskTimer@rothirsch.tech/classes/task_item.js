@@ -301,24 +301,16 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         this._timeLbl.set_style(this.task.currTime > this.task.planned ? 'color:#f55' : '');
     }
 
-_refreshBg() {
-    const frac = Math.min(1, this.task.currTime / this.task.planned);
-    const percent = Math.floor(frac * 100);
-    
-    // Simplest possible approach - just darken the background of the completed part
-    if (percent > 0) {
-        this.set_style(`
-            background-color: ${this.task.color};
-            box-shadow: inset ${percent}px 0 0 0 rgba(0,0,0,0.2);
-            border-radius: 8px;
-        `);
-    } else {
+    _refreshBg() {
+        const frac = Math.min(1, this.task.currTime / this.task.planned);
+        
+        // WCAG compliant progress indicator with proper contrast
         this.set_style(`
             background-color: ${this.task.color};
             border-radius: 8px;
+            box-shadow: inset ${Math.floor(PROGRESS_LEN * frac)}px 0 0 0 rgba(255,255,255,0.5);
         `);
     }
-}
 
     destroy() {
         this._stopTimer();

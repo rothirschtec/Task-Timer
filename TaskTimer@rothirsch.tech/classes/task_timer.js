@@ -17,6 +17,7 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 import { TaskItem }     from './task_item.js';
 import { CheckboxItem } from './checkbox_item.js';
 import TaskSettings     from './task_settings.js';
+import CheckboxSettings from './checkbox_settings.js';
 import * as Utils       from './utils.js';
 
 const PLUS_ICON = Gio.icon_new_for_string('list-add-symbolic');
@@ -161,6 +162,7 @@ class TaskTimer extends PanelMenu.Button {
             checkCount: boxes,
             checked: Array(boxes).fill(false),
             color: Utils.generateColor(),
+            description: _('Enter description here!'),
         };
         this._tasks.unshift(task);
         this._insertCheckboxRow(task, true);
@@ -216,10 +218,28 @@ class TaskTimer extends PanelMenu.Button {
     _insertCheckboxRow(task, save) {
         const row = new CheckboxItem(task, this);
 
-        row.connect('delete_signal', () => this._deleteTask(row));
-        row.connect('moveUp_signal', () => this._moveRow(row, -1));
-        row.connect('moveDown_signal', () => this._moveRow(row, 1));
+        row.connect('delete_signal', () => {
+            log("TaskTimer: Delete checkbox item clicked");
+            this._deleteTask(row);
+        });
+        row.connect('moveUp_signal', () => {
+            log("TaskTimer: Up checkbox item clicked");
+            this._moveRow(row, -1);
+        });
+        row.connect('moveDown_signal', () => {
+            log("TaskTimer: Down checkbox item clicked");
+            this._moveRow(row, 1);
+        });
         row.connect('update_signal', () => this._saveState());
+        // Add settings signal handlers
+        row.connect('settings_signal', () => {
+            log("TaskTimer: Checkbox settings signal received");
+            this._openCheckboxSettings(row);
+        });
+        row.connect('closeSettings_signal', () => {
+            log("TaskTimer: Close checkbox settings signal received");
+            this._closeSettings(row);
+        });
 
         this._taskSection.addMenuItem(row, 0);
         if (save) { this._saveState(); }
@@ -263,6 +283,30 @@ class TaskTimer extends PanelMenu.Button {
             log("TaskTimer: Settings update signal received");
             this._updateIndicator();
             row._refreshBg(); // Make sure to update bg color if changed
+        });
+
+        const idx = this._taskSection._getMenuItems().indexOf(row);
+        this._taskSection.addMenuItem(settings, idx + 1);
+        row._settingsRow = settings;
+    }
+    
+    _openCheckboxSettings(row) {
+        log("TaskTimer: Opening checkbox settings for " + row.task.name);
+        
+        /* close any other open settings pane */
+        this._taskSection._getMenuItems().forEach(item => {
+            if (item !== row && item._settingsRow) {
+                item._settingsRow.destroy();
+                item._settingsRow = null;
+                if (item.settingsOpen) item.settingsOpen = false;
+            }
+        });
+
+        // Create a simpler settings panel for checkboxes (no time settings)
+        const settings = new CheckboxSettings(row.task);
+        settings.connect('update_signal', () => {
+            log("TaskTimer: Checkbox settings update signal received");
+            row.set_style(`background-color:${row.task.color};`); // Update bg color if changed
         });
 
         const idx = this._taskSection._getMenuItems().indexOf(row);
