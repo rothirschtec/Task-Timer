@@ -122,18 +122,45 @@ class TaskTimer extends PanelMenu.Button {
         this._checkboxRow = new PopupMenu.PopupSubMenuMenuItem(_('＋ New checklist…'), true);
         this.menu.addMenuItem(this._checkboxRow);
 
-        const box = new St.BoxLayout({ style_class: 'popup-combobox-item' });
-        this._checkEntry = new St.Entry({ hint_text: _('List name…'),
-                                      style_class: 'popup-menu-item' });
-        this._checkSlider = new Slider.Slider(0);  
-        this._checkSlider.actor.set_width(1440);
-        this._checkAddBtn = new St.Button({ child: new St.Icon({ gicon: PLUS_ICON }),
-                                       style_class: 'popup-menu-item' });
+        // Create a better container with proper styling
+        const box = new St.BoxLayout({ 
+            style_class: 'new-task-container',
+            x_expand: true,
+            vertical: false,
+            style: 'spacing: 12px; padding: 16px; min-height: 50px;'
+        });
+        
+        // Make entry field larger and more visible
+        this._checkEntry = new St.Entry({ 
+            hint_text: _('List name…'),
+            style_class: 'task-entry',
+            x_expand: true,
+            can_focus: true,
+            style: 'min-width: 180px; margin-right: 10px;'
+        });
+        
+        // Create a container for slider and label
+        const sliderBox = new St.BoxLayout({ vertical: false });
+        const boxesLabel = new St.Label({ text: _('boxes'), style: 'margin: 0 8px;' });
+        
+        this._checkSlider = new Slider.Slider(0);
+        this._checkSlider.actor.set_width(200);
+        
+        sliderBox.add_child(boxesLabel);
+        sliderBox.add_child(this._checkSlider.actor);
+        
+        // Style the add button
+        this._checkAddBtn = new St.Button({ 
+            child: new St.Icon({ gicon: PLUS_ICON }),
+            style_class: 'task-add-button',
+            style: 'margin-left: 10px;'
+        });
 
+        // Add all elements to layout in correct order
         box.add_child(this._checkEntry);
-        box.add_child(new St.Label({ text: _('  boxes ') }));
-        box.add_child(this._checkSlider.actor);
+        box.add_child(sliderBox);
         box.add_child(this._checkAddBtn);
+        
         this._checkboxRow.menu.box.add_child(box);
 
         /* signals */
@@ -141,7 +168,7 @@ class TaskTimer extends PanelMenu.Button {
         this._checkSlider.connect('notify::value', () => {
             const boxes = Math.round(this._checkSlider.value * 10) + 1;
             this._checkboxRow.label.text = boxes ? _(`＋ New checklist… (${boxes} boxes)`)
-                                        : _('＋ New checklist…');
+                                            : _('＋ New checklist…');
         });
     }
 
