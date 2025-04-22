@@ -13,8 +13,16 @@ export function convertTime(sec) {
     return `${h.toString().padStart(1, '0')}:${m.toString().padStart(2, '0')}`;
 }
 export function mmss(sec) {
-    const m = Math.floor(sec / 60), s = sec % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    const totalMinutes = Math.floor(sec / 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    const s = sec % 60;
+    
+    if (h > 0) {
+        return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    } else {
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
 }
 
 /* ------- weekly helpers (unchanged from original) ------- */

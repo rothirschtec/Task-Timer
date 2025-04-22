@@ -283,8 +283,8 @@ class TaskTimer extends PanelMenu.Button {
             log("TaskTimer: Settings update signal received");
             this._updateIndicator();
             row._refreshBg(); // Make sure to update bg color if changed
+            row._updateTimeLabel(); // Add this line to update the time display
         });
-
         const idx = this._taskSection._getMenuItems().indexOf(row);
         this._taskSection.addMenuItem(settings, idx + 1);
         row._settingsRow = settings;

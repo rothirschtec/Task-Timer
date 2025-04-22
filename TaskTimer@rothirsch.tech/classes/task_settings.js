@@ -178,41 +178,12 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
         });
         textBox.set_width(100);
         
-        // For better precision, add minute increment/decrement buttons
-        const minus5MinBtn = new St.Button({
-            label: '-5m',
-            style_class: 'time-button',
-            can_focus: true,
-            reactive: true,
-        });
-        
-        const minusMinBtn = new St.Button({
-            label: '-1m',
-            style_class: 'time-button',
-            can_focus: true,
-            reactive: true,
-        });
-        
-        const plusMinBtn = new St.Button({
-            label: '+1m',
-            style_class: 'time-button',
-            can_focus: true,
-            reactive: true,
-        });
-        
-        const plus5MinBtn = new St.Button({
-            label: '+5m',
-            style_class: 'time-button',
-            can_focus: true,
-            reactive: true,
-        });
-        
         // Connect slider to update text with precise minute mapping
         slider.connect('notify::value', () => {
-            // Convert slider value to minutes with decimal precision
-            // Convert slider value to minutes with finer precision
-            const minutes = Math.floor(slider.value * maxMinutes * 100) / 100;
-            const seconds = Math.floor(minutes * 60); 
+            // Convert slider value to seconds with better precision
+            const minutes = slider.value * maxMinutes;
+            const seconds = Math.floor(minutes * 60);
+            
             // Update text box if value changed
             if (Utils.mmss(seconds) !== textBox.get_text()) {
                 textBox.set_text(Utils.mmss(seconds));
@@ -261,68 +232,7 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
             return Clutter.EVENT_PROPAGATE;
         });
         
-        // Connect minute adjustment buttons with minute-level precision
-        minus5MinBtn.connect('clicked', () => {
-            // Get current minutes directly from slider value
-            const minutes = Math.round(slider.value * maxMinutes);
-            // Decrease by 5 minutes, but not below 0
-            const newMinutes = Math.max(0, minutes - 5);
-            // Convert to slider value and seconds
-            const newValue = newMinutes / maxMinutes;
-            const newSeconds = newMinutes * 60;
-            
-            slider.value = newValue;
-            textBox.set_text(Utils.mmss(newSeconds));
-            cb(newSeconds);
-        });
-        
-        minusMinBtn.connect('clicked', () => {
-            // Get current minutes directly from slider value
-            const minutes = Math.round(slider.value * maxMinutes);
-            // Decrease by 1 minute, but not below 0
-            const newMinutes = Math.max(0, minutes - 1);
-            // Convert to slider value and seconds
-            const newValue = newMinutes / maxMinutes;
-            const newSeconds = newMinutes * 60;
-            
-            slider.value = newValue;
-            textBox.set_text(Utils.mmss(newSeconds));
-            cb(newSeconds);
-        });
-        
-        plusMinBtn.connect('clicked', () => {
-            // Get current minutes directly from slider value
-            const minutes = Math.round(slider.value * maxMinutes);
-            // Increase by 1 minute
-            const newMinutes = minutes + 1;
-            // Convert to slider value and seconds
-            const newValue = Math.min(1, newMinutes / maxMinutes);
-            const newSeconds = newMinutes * 60;
-            
-            slider.value = newValue;
-            textBox.set_text(Utils.mmss(newSeconds));
-            cb(newSeconds);
-        });
-        
-        plus5MinBtn.connect('clicked', () => {
-            // Get current minutes directly from slider value
-            const minutes = Math.round(slider.value * maxMinutes);
-            // Increase by 5 minutes
-            const newMinutes = minutes + 5;
-            // Convert to slider value and seconds
-            const newValue = Math.min(1, newMinutes / maxMinutes);
-            const newSeconds = newMinutes * 60;
-            
-            slider.value = newValue;
-            textBox.set_text(Utils.mmss(newSeconds));
-            cb(newSeconds);
-        });
-        
         // Add elements to the row in the correct order
-        row.add_child(minus5MinBtn);
-        row.add_child(minusMinBtn);
-        row.add_child(plusMinBtn);
-        row.add_child(plus5MinBtn);
         row.add_child(slider.actor);
         row.add_child(textBox);
         
