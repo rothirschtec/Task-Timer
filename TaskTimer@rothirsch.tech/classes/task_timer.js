@@ -74,17 +74,39 @@ class TaskTimer extends PanelMenu.Button {
         this._newRow = new PopupMenu.PopupSubMenuMenuItem(_('＋ New task…'), true);
         this.menu.addMenuItem(this._newRow);
 
-        const box = new St.BoxLayout({ style_class: 'popup-combobox-item' });
-        this._entry  = new St.Entry({ hint_text: _('Task name…'),
-                                      style_class: 'popup-menu-item' });
-        this._slider = new Slider.Slider(0);  this._slider.actor.set_width(1440);
-        this._addBtn = new St.Button({ child: new St.Icon({ gicon: PLUS_ICON }),
-                                       style_class: 'popup-menu-item' });
+        // Create a proper layout container with clear styling
+        const box = new St.BoxLayout({ 
+            style_class: 'popup-combobox-item',
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+            style: 'spacing: 8px; padding: 12px;'
+        });
+        
+        // Ensure the text entry is properly sized and visible
+        this._entry = new St.Entry({ 
+            hint_text: _('Task name…'),
+            style_class: 'popup-menu-item',
+            x_expand: true,
+            can_focus: true
+        });
+        
+        // Make sure slider has reasonable width and styling
+        this._slider = new Slider.Slider(0);
+        this._slider.actor.set_width(200);
+        
+        // Ensure the add button is visible and styled properly
+        this._addBtn = new St.Button({ 
+            child: new St.Icon({ gicon: PLUS_ICON }),
+            style_class: 'popup-menu-item'
+        });
 
+        // Properly add all elements to the layout
         box.add_child(this._entry);
         box.add_child(new St.Label({ text: _('  min ') }));
         box.add_child(this._slider.actor);
         box.add_child(this._addBtn);
+        
+        // Make sure the box is properly added to the menu
         this._newRow.menu.box.add_child(box);
 
         /* signals */
@@ -95,7 +117,6 @@ class TaskTimer extends PanelMenu.Button {
                                         : _('＋ New task…');
         });
     }
-
     /* ─────────── "＋ New checklist…" ─────────── */
     _buildCheckboxRow() {
         this._checkboxRow = new PopupMenu.PopupSubMenuMenuItem(_('＋ New checklist…'), true);

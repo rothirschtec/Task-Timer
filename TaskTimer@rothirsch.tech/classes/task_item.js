@@ -296,22 +296,34 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         this.emit('update_signal');
     }
 
+    // In the _updateTimeLabel() method, add this at the end:
     _updateTimeLabel() {
         this._timeLbl.text = `${Utils.mmss(this.task.currTime)} / ${Utils.mmss(this.task.planned)}`;
         this._timeLbl.set_style(this.task.currTime > this.task.planned ? 'color:#f55' : '');
+        
+        // Add this line to force progress bar update
+        this._refreshBg();
     }
 
     _refreshBg() {
-        const frac = Math.min(1, this.task.currTime / this.task.planned);
+        let frac;
         
-        // WCAG compliant progress indicator with proper contrast
+        // Calculate how "full" the progress should be
+        if (this.task.currTime >= this.task.planned && this.task.planned > 0) {
+            // When at 100% or over, fill to 95% of the available width
+            frac = 0.95;
+        } else {
+            // Normal proportional progress (0-95%)
+            frac = this.task.planned > 0 ? Math.min(0.95, (this.task.currTime / this.task.planned) * 0.95) : 0;
+        }
+        
+        // Apply the styling with the calculated fill
         this.set_style(`
             background-color: ${this.task.color};
             border-radius: 8px;
-            box-shadow: inset ${Math.floor(PROGRESS_LEN * frac)}px 0 0 0 rgba(255,255,255,0.5);
+            box-shadow: inset ${Math.floor(PROGRESS_LEN * frac)}px 0 0 0 rgba(0,0,0,0.3);
         `);
     }
-
     destroy() {
         this._stopTimer();
         super.destroy();
