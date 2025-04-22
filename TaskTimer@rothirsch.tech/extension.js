@@ -1,40 +1,19 @@
-// GNOME Shell extension code
-const Main = imports.ui.main;
-const ExtensionUtils = imports.misc.extensionUtils;
+import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-// Global variable to store our extension instance
-let taskTimer;
+import TaskTimer from './classes/task_timer.js';
 
-function init() {
-    // No initialization needed
-}
-
-function enable() {
-    try {
-        // Directly import the task_timer module to avoid modern import syntax
-        const Me = ExtensionUtils.getCurrentExtension();
-        const task_timer = Me.imports.classes.task_timer;
-        
-        // Create a new instance of TaskTimer
-        taskTimer = new task_timer.TaskTimer();
-        
-        // Add it to the panel
-        Main.panel.addToStatusArea('taskTimer', taskTimer);
-    } catch (e) {
-        log('Task Timer: Error enabling extension: ' + e.message);
-        logError(e);
+export default class TaskTimerExtension extends Extension {
+    enable () {
+        this._indicator = new TaskTimer();
+        Main.panel.addToStatusArea('task-timer', this._indicator);
     }
-}
 
-function disable() {
-    try {
-        if (taskTimer) {
-            taskTimer.disable();
-            taskTimer.destroy();
-            taskTimer = null;
+    disable () {
+        if (this._indicator) {
+            this._indicator.disable?.();
+            this._indicator.destroy();
+            this._indicator = null;
         }
-    } catch (e) {
-        log('Task Timer: Error disabling extension: ' + e.message);
-        logError(e);
     }
 }
