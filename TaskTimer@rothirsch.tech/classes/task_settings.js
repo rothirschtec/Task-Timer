@@ -38,7 +38,9 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
         this.restTime = SECONDS_PER_DAY - spentTime;
 
         /* description row */
+        const descItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         const descBox = new St.BoxLayout({ style_class: 'settings-box' });
+        
         this._descBtn = new St.Button({ 
             label: Utils.addNewLines(task.description),
             style_class: 'description-btn',
@@ -54,7 +56,8 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
         this._descEntry.hide();
         descBox.add_child(this._descBtn);
         descBox.add_child(this._descEntry);
-        this.addMenuItem(new PopupMenu.PopupBaseMenuItem({ reactive: false })).actor.add_child(descBox);
+        descItem.add_child(descBox);
+        this.addMenuItem(descItem);
 
         this._descBtn.connect('clicked', () => {
             log("TaskSettings: Description button clicked");
@@ -84,7 +87,9 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
             });
 
         /* color picker row */
+        const colorItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         const colorBox = new St.BoxLayout({ style_class: 'settings-box' });
+        
         colorBox.add_child(new St.Label({ text: _('Color:'), style_class: 'settings-label' }));
         
         const colorGrid = new St.BoxLayout({ 
@@ -122,7 +127,8 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
         
         colorBox.add_child(colorGrid);
         colorBox.add_child(randomBtn);
-        this.addMenuItem(new PopupMenu.PopupBaseMenuItem({ reactive: false })).actor.add_child(colorBox);
+        colorItem.add_child(colorBox);
+        this.addMenuItem(colorItem);
 
         this.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
@@ -143,6 +149,7 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
 
     /* ---- helpers ---- */
     _makeSlider(label, init, cb) {
+        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         const row = new St.BoxLayout({ style_class: 'settings-box' });
         row.add_child(new St.Label({ text: label, style_class: 'settings-label' }));
         const slider = new Slider.Slider(init / this.restTime);
@@ -152,19 +159,23 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
             cb(val);
         });
         row.add_child(slider.actor);
-        this.addMenuItem(new PopupMenu.PopupBaseMenuItem({ reactive: false })).actor.add_child(row);
+        item.add_child(row);
+        this.addMenuItem(item);
     }
 
     _makeWeekHeader() {
+        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         const row = new St.BoxLayout({ style_class: 'settings-box' });
         ['', 'Mon','Tue','Wed','Thu','Fri','Sat','Sun','Total'].forEach(t =>
             row.add_child(new St.Label({
                 text: _(t), style_class: t ? 'weekday-label' : 'weekday-header',
             })));
-        this.addMenuItem(new PopupMenu.PopupBaseMenuItem({ reactive: false })).actor.add_child(row);
+        item.add_child(row);
+        this.addMenuItem(item);
     }
 
     _makeWeekNumbers() {
+        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         const row = new St.BoxLayout({ style_class: 'settings-box' });
         row.add_child(new St.Label({ text: _('Current:\nMax:'), style_class: 'weekday-header' }));
         const mk = key => {
@@ -180,7 +191,8 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
         this._total = new St.Label({ text: Utils.calcTotal(this.task.weekdays),
                                      style_class: 'weekday-times' });
         row.add_child(this._total);
-        this.addMenuItem(new PopupMenu.PopupBaseMenuItem({ reactive: false })).actor.add_child(row);
+        item.add_child(row);
+        this.addMenuItem(item);
     }
 
     _updateWeek() {
