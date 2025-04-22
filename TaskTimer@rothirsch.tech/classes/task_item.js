@@ -301,16 +301,24 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         this._timeLbl.set_style(this.task.currTime > this.task.planned ? 'color:#f55' : '');
     }
 
-    _refreshBg() {
-        const frac = Math.min(1, this.task.currTime / this.task.planned);
-        const px = Math.floor(frac * PROGRESS_LEN);
-        
-        // Use a relative path from the extension's directory
-        this.set_style(`background-color:${this.task.color};
-                        background-image:url('./icons/progress_bar.png');
-                        background-position:${px}px 0;
-                        background-repeat:no-repeat;`);
+_refreshBg() {
+    const frac = Math.min(1, this.task.currTime / this.task.planned);
+    const percent = Math.floor(frac * 100);
+    
+    // Simplest possible approach - just darken the background of the completed part
+    if (percent > 0) {
+        this.set_style(`
+            background-color: ${this.task.color};
+            box-shadow: inset ${percent}px 0 0 0 rgba(0,0,0,0.2);
+            border-radius: 8px;
+        `);
+    } else {
+        this.set_style(`
+            background-color: ${this.task.color};
+            border-radius: 8px;
+        `);
     }
+}
 
     destroy() {
         this._stopTimer();
