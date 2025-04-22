@@ -12,10 +12,10 @@ export function convertTime(sec) {
     const m = sec - h * 60;
     return `${h.toString().padStart(1, '0')}:${m.toString().padStart(2, '0')}`;
 }
+
 export function mmss(sec) {
-    const totalMinutes = Math.floor(sec / 60);
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
     const s = sec % 60;
     
     if (h > 0) {
@@ -78,10 +78,21 @@ export function parseTimeInput(text) {
         return null;
     }
     
-    // Check for mm:ss format
+    // Check for h:m:s format
     if (text.includes(':')) {
         const parts = text.split(':');
-        if (parts.length === 2) {
+        if (parts.length === 3) {
+            // Hours:Minutes:Seconds format
+            const hours = parseInt(parts[0], 10);
+            const minutes = parseInt(parts[1], 10);
+            const seconds = parseInt(parts[2], 10);
+            
+            if (!isNaN(hours) && !isNaN(minutes) && !isNaN(seconds) && 
+                minutes < 60 && seconds < 60) {
+                return (hours * 3600) + (minutes * 60) + seconds;
+            }
+        } else if (parts.length === 2) {
+            // Minutes:Seconds format
             const minutes = parseInt(parts[0], 10);
             const seconds = parseInt(parts[1], 10);
             
@@ -90,11 +101,11 @@ export function parseTimeInput(text) {
             }
         }
     } 
-    // Handle single number as minutes
+    // Handle single number as seconds
     else {
-        const minutes = parseInt(text, 10);
-        if (!isNaN(minutes)) {
-            return minutes * 60;
+        const seconds = parseInt(text, 10);
+        if (!isNaN(seconds)) {
+            return seconds;
         }
     }
     

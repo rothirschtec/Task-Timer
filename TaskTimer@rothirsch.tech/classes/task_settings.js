@@ -147,99 +147,98 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
     }
 
     /* ---- helpers ---- */
-    _makeSlider(label, init, cb) {
-        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
-        const row = new St.BoxLayout({ 
-            style_class: 'settings-box',
-            y_align: Clutter.ActorAlign.CENTER
-        });
+// In task_settings.js, find the _makeSlider method
+_makeSlider(label, init, cb) {
+    const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+    const row = new St.BoxLayout({ 
+        style_class: 'settings-box',
+        y_align: Clutter.ActorAlign.CENTER
+    });
+    
+    // Label
+    row.add_child(new St.Label({ 
+        text: label, 
+        style_class: 'settings-label'
+    }));
+    
+    // Set maximum to 24 hours (1440 minutes)
+    const maxMinutes = 1440;
+    const initialMinutes = Math.floor(init / 60);
+    
+    // Slider - normalize value between 0 and 1 based on maxMinutes
+    const slider = new Slider.Slider(Math.min(1, initialMinutes / maxMinutes));
+    slider.actor.add_style_class_name('time-slider');
+    
+    // Text input with proper formatting
+    const textBox = new St.Entry({
+        text: Utils.mmss(init),
+        style_class: 'time-entry',
+        can_focus: true,
+        reactive: true,
+    });
+    textBox.set_width(1440);
+    
+    // Connect slider to update text with precise minute mapping
+    slider.connect('notify::value', () => {
+        // Convert slider value to seconds with better precision
+        const minutes = slider.value * maxMinutes;
+        const seconds = Math.floor(minutes * 60);
         
-        // Label
-        row.add_child(new St.Label({ 
-            text: label, 
-            style_class: 'settings-label'
-        }));
+        // Update text box if value changed
+        if (Utils.mmss(seconds) !== textBox.get_text()) {
+            textBox.set_text(Utils.mmss(seconds));
+        }
         
-        // Create a reasonable maximum time in minutes with minute-level precision
-        // Changed to 100 to match task creation slider (which uses 0-100 minutes)
-        const maxMinutes = 100; 
-        const initialMinutes = Math.floor(init / 60);
+        // Update task value
+        cb(seconds);
+    });
+    
+    // Connect text input to update slider
+    textBox.clutter_text.connect('text-changed', () => {
+        const text = textBox.get_text();
+        const seconds = Utils.parseTimeInput(text);
         
-        // Slider - normalize value between 0 and 1 based on maxMinutes
-        const slider = new Slider.Slider(initialMinutes / maxMinutes);
-        slider.actor.add_style_class_name('time-slider');
-        
-        // Text input
-        const textBox = new St.Entry({
-            text: Utils.mmss(init),
-            style_class: 'time-entry',
-            can_focus: true,
-            reactive: true,
-        });
-        textBox.set_width(100);
-        
-        // Connect slider to update text with precise minute mapping
-        slider.connect('notify::value', () => {
-            // Convert slider value to seconds with better precision
-            const minutes = slider.value * maxMinutes;
-            const seconds = Math.floor(minutes * 60);
+        if (seconds !== null) {
+            // Convert seconds to slider value (0-1 range)
+            const minutes = seconds / 60;
+            const newValue = Math.min(1, minutes / maxMinutes);
             
-            // Update text box if value changed
-            if (Utils.mmss(seconds) !== textBox.get_text()) {
-                textBox.set_text(Utils.mmss(seconds));
+            if (Math.abs(slider.value - newValue) > 0.001) {
+                slider.value = newValue;
+                cb(seconds);
             }
-            
-            // Update task value
-            cb(seconds);
-        });
-        
-        // Connect text input to update slider
-        textBox.clutter_text.connect('text-changed', () => {
+        }
+    });
+    
+    // Handle key events for Enter key
+    textBox.clutter_text.connect('key-press-event', (_o, e) => {
+        const symbol = e.get_key_symbol();
+        if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter) {
             const text = textBox.get_text();
             const seconds = Utils.parseTimeInput(text);
             
             if (seconds !== null) {
-                // Convert seconds to slider value (0-1 range)
+                textBox.set_text(Utils.mmss(seconds));
                 const minutes = seconds / 60;
-                const newValue = Math.min(1, minutes / maxMinutes);
-                
-                if (Math.abs(slider.value - newValue) > 0.001) {
-                    slider.value = newValue;
-                    cb(seconds);
-                }
+                slider.value = Math.min(1, minutes / maxMinutes);
+                cb(seconds);
+            } else {
+                const minutes = slider.value * maxMinutes;
+                const currentSeconds = Math.floor(minutes * 60);
+                textBox.set_text(Utils.mmss(currentSeconds));
             }
-        });
-        
-        // Handle key events for Enter key
-        textBox.clutter_text.connect('key-press-event', (_o, e) => {
-            const symbol = e.get_key_symbol();
-            if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter) {
-                const text = textBox.get_text();
-                const seconds = Utils.parseTimeInput(text);
-                
-                if (seconds !== null) {
-                    textBox.set_text(Utils.mmss(seconds));
-                    const minutes = seconds / 60;
-                    slider.value = Math.min(1, minutes / maxMinutes);
-                    cb(seconds);
-                } else {
-                    const minutes = Math.round(slider.value * maxMinutes);
-                    const currentSeconds = minutes * 60;
-                    textBox.set_text(Utils.mmss(currentSeconds));
-                }
-                return Clutter.EVENT_STOP;
-            }
-            return Clutter.EVENT_PROPAGATE;
-        });
-        
-        // Add elements to the row in the correct order
-        row.add_child(slider.actor);
-        row.add_child(textBox);
-        
-        item.add_child(row);
-        this.addMenuItem(item);
-    }
-
+            return Clutter.EVENT_STOP;
+        }
+        return Clutter.EVENT_PROPAGATE;
+    });
+    
+    // Add elements to the row in the correct order
+    row.add_child(slider.actor);
+    row.add_child(textBox);
+    
+    item.add_child(row);
+    this.addMenuItem(item);
+}
     _makeWeekHeader() {
         const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         const row = new St.BoxLayout({ style_class: 'settings-box' });

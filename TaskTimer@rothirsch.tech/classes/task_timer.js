@@ -77,7 +77,7 @@ class TaskTimer extends PanelMenu.Button {
         const box = new St.BoxLayout({ style_class: 'popup-combobox-item' });
         this._entry  = new St.Entry({ hint_text: _('Task name…'),
                                       style_class: 'popup-menu-item' });
-        this._slider = new Slider.Slider(0);  this._slider.actor.set_width(100);
+        this._slider = new Slider.Slider(0);  this._slider.actor.set_width(1440);
         this._addBtn = new St.Button({ child: new St.Icon({ gicon: PLUS_ICON }),
                                        style_class: 'popup-menu-item' });
 
@@ -90,7 +90,7 @@ class TaskTimer extends PanelMenu.Button {
         /* signals */
         this._addBtn.connect('clicked', () => this._onAdd());
         this._slider.connect('notify::value', () => {
-            const m = Math.round(this._slider.value * 100);
+            const m = Math.round(this._slider.value * 1440);
             this._newRow.label.text = m ? _(`＋ New task… (${m} min)`)
                                         : _('＋ New task…');
         });
@@ -105,7 +105,7 @@ class TaskTimer extends PanelMenu.Button {
         this._checkEntry = new St.Entry({ hint_text: _('List name…'),
                                       style_class: 'popup-menu-item' });
         this._checkSlider = new Slider.Slider(0);  
-        this._checkSlider.actor.set_width(100);
+        this._checkSlider.actor.set_width(1440);
         this._checkAddBtn = new St.Button({ child: new St.Icon({ gicon: PLUS_ICON }),
                                        style_class: 'popup-menu-item' });
 
@@ -126,7 +126,7 @@ class TaskTimer extends PanelMenu.Button {
 
     _onAdd() {
         const name = this._entry.get_text().trim();
-        const mins = Math.round(this._slider.value * 100);
+        const mins = Math.round(this._slider.value * 1440);
         if (!name || !mins) return this._flashRow();
 
         /* reset UI */
