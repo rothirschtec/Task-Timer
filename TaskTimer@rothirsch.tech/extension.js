@@ -1,29 +1,40 @@
+// GNOME Shell extension code
 const Main = imports.ui.main;
-const Lang = imports.lang;
-const PanelMenu = imports.ui.panelMenu;
-const PopupMenu = imports.ui.popupMenu;
-const St = imports.gi.St;
-const Gio = imports.gi.Gio;
-//const Gtk = imports.gi.Gtk;
-const GLib = imports.gi.GLib;
-const Clutter = imports.gi.Clutter;
-const Shell = imports.gi.Shell;
-const Util = imports.misc.util;
+const ExtensionUtils = imports.misc.extensionUtils;
 
-const Extension = imports.misc.extensionUtils.getCurrentExtension();
-const task_timer = Extension.imports.classes.task_timer;
+// Global variable to store our extension instance
+let taskTimer;
 
-let newTaskMenu;
-function init()  {
+function init() {
+    // No initialization needed
 }
 
-function enable()  {
-  taskTimer = new task_timer.TaskTimer();
-  Main.panel.addToStatusArea('taskTimer', taskTimer);
+function enable() {
+    try {
+        // Directly import the task_timer module to avoid modern import syntax
+        const Me = ExtensionUtils.getCurrentExtension();
+        const task_timer = Me.imports.classes.task_timer;
+        
+        // Create a new instance of TaskTimer
+        taskTimer = new task_timer.TaskTimer();
+        
+        // Add it to the panel
+        Main.panel.addToStatusArea('taskTimer', taskTimer);
+    } catch (e) {
+        log('Task Timer: Error enabling extension: ' + e.message);
+        logError(e);
+    }
 }
 
-function disable()  {
-  taskTimer.disable();
-  taskTimer.destroy();
-  taskTimer = null;
+function disable() {
+    try {
+        if (taskTimer) {
+            taskTimer.disable();
+            taskTimer.destroy();
+            taskTimer = null;
+        }
+    } catch (e) {
+        log('Task Timer: Error disabling extension: ' + e.message);
+        logError(e);
+    }
 }
