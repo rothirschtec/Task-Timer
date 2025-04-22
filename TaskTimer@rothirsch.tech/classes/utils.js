@@ -6,14 +6,17 @@ export function generateColor() {
 }
 export const generate_color = generateColor;          // legacy alias
 
+// In utils.js - update these functions for clarity
 export function convertTime(sec) {
-    sec = Math.floor(sec / 60);
-    const h = Math.floor(sec / 60);
-    const m = sec - h * 60;
-    return `${h.toString().padStart(1, '0')}:${m.toString().padStart(2, '0')}`;
+    sec = Math.floor(sec / 60); // Convert seconds to minutes
+    const h = Math.floor(sec / 60); // Get hours
+    const m = sec - h * 60; // Get remaining minutes
+    return `${h}:${m.toString().padStart(2, '0')}`;
 }
+
 export function mmss(sec) {
-    const m = Math.floor(sec / 60), s = sec % 60;
+    const m = Math.floor(sec / 60); // Minutes
+    const s = sec % 60; // Seconds
     return `${m}:${s.toString().padStart(2, '0')}`;
 }
 

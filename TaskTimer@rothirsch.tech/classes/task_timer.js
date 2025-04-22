@@ -82,6 +82,7 @@ class TaskTimer extends PanelMenu.Button {
         });
     }
 
+    // In task_timer.js
     _onAdd() {
         const name = this._entry.get_text().trim();
         const mins = Math.round(this._slider.value * 100);
@@ -89,21 +90,22 @@ class TaskTimer extends PanelMenu.Button {
 
         /* reset UI */
         this._entry.set_text('');
-        this._slider.value   = 0;
-        this._newRow.label.text = _('＋ New task…');
+        this._slider.value = 0;
+        this._newRow.label.text = _('＋ New task…');
 
         const task = {
-            name, planned: mins * 60, currTime: 0, lastStop: 0,
-            color: Utils.generateColor(), running: false,
-            weekdays: { sunday:'0:00/0:00', monday:'0:00/0:00', tuesday:'0:00/0:00',
-                        wednesday:'0:00/0:00', thursday:'0:00/0:00', friday:'0:00/0:00',
-                        saturday:'0:00/0:00' },
+            name, 
+            planned: mins * 60, // This converts minutes to seconds correctly
+            currTime: 0, 
+            lastStop: 0,
+            color: Utils.generateColor(), 
+            running: false,
+            weekdays: { /* ... */ },
             description: _('Enter description here!'),
         };
         this._tasks.unshift(task);
         this._insertTaskRow(task, true);
     }
-
     _flashRow() {
         this._newRow.label.set_style('color:#f55');
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 700,

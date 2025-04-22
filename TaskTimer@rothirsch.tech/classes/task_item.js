@@ -247,8 +247,11 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         this.emit('update_signal');
     }
 
+    // In task_item.js
     _updateTimeLabel() {
-        this._timeLbl.text = `${Utils.mmss(this.task.currTime)} / ${Utils.convertTime(this.task.planned)}`;
+        // Using mmss for both current time and planned time for consistency
+        this._timeLbl.text =
+            `${Utils.mmss(this.task.currTime)} / ${Utils.mmss(this.task.planned)}`;
         this._timeLbl.set_style(this.task.currTime > this.task.planned ? 'color:#f55' : '');
     }
 
