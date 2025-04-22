@@ -12,7 +12,7 @@ const KEY_RETURN = 65293;
 const KEY_ENTER  = 65421;
 const SECONDS_PER_DAY = 86400;
 
-// Predefined colors
+// WCAG 2.0 AA compliant colors
 const COLORS = [
     '#2272C8', // Blue
     '#3C9D4E', // Green
@@ -98,7 +98,7 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
         
         COLORS.forEach(color => {
             const colorBtn = new St.Button({
-                style: `background-color: ${color}; width: 24px; height: 24px; margin: 2px; border-radius: 12px;`,
+                style: `background-color: ${color}; width: 36px; height: 36px; margin: 4px; border-radius: 18px;`,
                 reactive: true,
                 can_focus: true,
             });
@@ -149,15 +149,183 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
     /* ---- helpers ---- */
     _makeSlider(label, init, cb) {
         const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
-        const row = new St.BoxLayout({ style_class: 'settings-box' });
-        row.add_child(new St.Label({ text: label, style_class: 'settings-label' }));
-        const slider = new Slider.Slider(init / this.restTime);
-        slider.actor.add_style_class_name('time-slider');
-        slider.connect('notify::value', () => {
-            const val = Math.floor(slider.value * (this.restTime / 60)) * 60;
-            cb(val);
+        const row = new St.BoxLayout({ 
+            style_class: 'settings-box',
+            y_align: Clutter.ActorAlign.CENTER
         });
+        
+        // Label
+        row.add_child(new St.Label({ 
+            text: label, 
+            style_class: 'settings-label'
+        }));
+        
+        // Create a reasonable maximum time in minutes with minute-level precision
+        // Changed to 100 to match task creation slider (which uses 0-100 minutes)
+        const maxMinutes = 100; 
+        const initialMinutes = Math.floor(init / 60);
+        
+        // Slider - normalize value between 0 and 1 based on maxMinutes
+        const slider = new Slider.Slider(initialMinutes / maxMinutes);
+        slider.actor.add_style_class_name('time-slider');
+        
+        // Text input
+        const textBox = new St.Entry({
+            text: Utils.mmss(init),
+            style_class: 'time-entry',
+            can_focus: true,
+            reactive: true,
+        });
+        textBox.set_width(100);
+        
+        // For better precision, add minute increment/decrement buttons
+        const minus5MinBtn = new St.Button({
+            label: '-5m',
+            style_class: 'time-button',
+            can_focus: true,
+            reactive: true,
+        });
+        
+        const minusMinBtn = new St.Button({
+            label: '-1m',
+            style_class: 'time-button',
+            can_focus: true,
+            reactive: true,
+        });
+        
+        const plusMinBtn = new St.Button({
+            label: '+1m',
+            style_class: 'time-button',
+            can_focus: true,
+            reactive: true,
+        });
+        
+        const plus5MinBtn = new St.Button({
+            label: '+5m',
+            style_class: 'time-button',
+            can_focus: true,
+            reactive: true,
+        });
+        
+        // Connect slider to update text with precise minute mapping
+        slider.connect('notify::value', () => {
+            // Convert slider value to minutes with decimal precision
+            // Convert slider value to minutes with finer precision
+            const minutes = Math.floor(slider.value * maxMinutes * 100) / 100;
+            const seconds = Math.floor(minutes * 60); 
+            // Update text box if value changed
+            if (Utils.mmss(seconds) !== textBox.get_text()) {
+                textBox.set_text(Utils.mmss(seconds));
+            }
+            
+            // Update task value
+            cb(seconds);
+        });
+        
+        // Connect text input to update slider
+        textBox.clutter_text.connect('text-changed', () => {
+            const text = textBox.get_text();
+            const seconds = Utils.parseTimeInput(text);
+            
+            if (seconds !== null) {
+                // Convert seconds to slider value (0-1 range)
+                const minutes = seconds / 60;
+                const newValue = Math.min(1, minutes / maxMinutes);
+                
+                if (Math.abs(slider.value - newValue) > 0.001) {
+                    slider.value = newValue;
+                    cb(seconds);
+                }
+            }
+        });
+        
+        // Handle key events for Enter key
+        textBox.clutter_text.connect('key-press-event', (_o, e) => {
+            const symbol = e.get_key_symbol();
+            if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter) {
+                const text = textBox.get_text();
+                const seconds = Utils.parseTimeInput(text);
+                
+                if (seconds !== null) {
+                    textBox.set_text(Utils.mmss(seconds));
+                    const minutes = seconds / 60;
+                    slider.value = Math.min(1, minutes / maxMinutes);
+                    cb(seconds);
+                } else {
+                    const minutes = Math.round(slider.value * maxMinutes);
+                    const currentSeconds = minutes * 60;
+                    textBox.set_text(Utils.mmss(currentSeconds));
+                }
+                return Clutter.EVENT_STOP;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        });
+        
+        // Connect minute adjustment buttons with minute-level precision
+        minus5MinBtn.connect('clicked', () => {
+            // Get current minutes directly from slider value
+            const minutes = Math.round(slider.value * maxMinutes);
+            // Decrease by 5 minutes, but not below 0
+            const newMinutes = Math.max(0, minutes - 5);
+            // Convert to slider value and seconds
+            const newValue = newMinutes / maxMinutes;
+            const newSeconds = newMinutes * 60;
+            
+            slider.value = newValue;
+            textBox.set_text(Utils.mmss(newSeconds));
+            cb(newSeconds);
+        });
+        
+        minusMinBtn.connect('clicked', () => {
+            // Get current minutes directly from slider value
+            const minutes = Math.round(slider.value * maxMinutes);
+            // Decrease by 1 minute, but not below 0
+            const newMinutes = Math.max(0, minutes - 1);
+            // Convert to slider value and seconds
+            const newValue = newMinutes / maxMinutes;
+            const newSeconds = newMinutes * 60;
+            
+            slider.value = newValue;
+            textBox.set_text(Utils.mmss(newSeconds));
+            cb(newSeconds);
+        });
+        
+        plusMinBtn.connect('clicked', () => {
+            // Get current minutes directly from slider value
+            const minutes = Math.round(slider.value * maxMinutes);
+            // Increase by 1 minute
+            const newMinutes = minutes + 1;
+            // Convert to slider value and seconds
+            const newValue = Math.min(1, newMinutes / maxMinutes);
+            const newSeconds = newMinutes * 60;
+            
+            slider.value = newValue;
+            textBox.set_text(Utils.mmss(newSeconds));
+            cb(newSeconds);
+        });
+        
+        plus5MinBtn.connect('clicked', () => {
+            // Get current minutes directly from slider value
+            const minutes = Math.round(slider.value * maxMinutes);
+            // Increase by 5 minutes
+            const newMinutes = minutes + 5;
+            // Convert to slider value and seconds
+            const newValue = Math.min(1, newMinutes / maxMinutes);
+            const newSeconds = newMinutes * 60;
+            
+            slider.value = newValue;
+            textBox.set_text(Utils.mmss(newSeconds));
+            cb(newSeconds);
+        });
+        
+        // Add elements to the row in the correct order
+        row.add_child(minus5MinBtn);
+        row.add_child(minusMinBtn);
+        row.add_child(plusMinBtn);
+        row.add_child(plus5MinBtn);
         row.add_child(slider.actor);
+        row.add_child(textBox);
+        
         item.add_child(row);
         this.addMenuItem(item);
     }

@@ -62,3 +62,33 @@ export function addNewLines(text, POS = 60) {
     }
     return out + line;
 }
+
+/* Parse time input in various formats (mm:ss, mmm, etc.) */
+export function parseTimeInput(text) {
+    // Handle empty or invalid input
+    if (!text || text.trim() === '') {
+        return null;
+    }
+    
+    // Check for mm:ss format
+    if (text.includes(':')) {
+        const parts = text.split(':');
+        if (parts.length === 2) {
+            const minutes = parseInt(parts[0], 10);
+            const seconds = parseInt(parts[1], 10);
+            
+            if (!isNaN(minutes) && !isNaN(seconds) && seconds < 60) {
+                return (minutes * 60) + seconds;
+            }
+        }
+    } 
+    // Handle single number as minutes
+    else {
+        const minutes = parseInt(text, 10);
+        if (!isNaN(minutes)) {
+            return minutes * 60;
+        }
+    }
+    
+    return null; // Invalid input
+}
