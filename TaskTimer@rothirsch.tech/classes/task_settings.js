@@ -176,7 +176,7 @@ _makeSlider(label, init, cb) {
         can_focus: true,
         reactive: true,
     });
-    textBox.set_width(1440);
+    textBox.set_width(150);
     
     // Connect slider to update text with precise minute mapping
     slider.connect('notify::value', () => {

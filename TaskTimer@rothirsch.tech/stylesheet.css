@@ -208,3 +208,24 @@
 .checkbox-button:active {
   background-color: rgba(255, 255, 255, 0.3);
 }
+
+/* Control popup menu width */
+.popup-menu-content {
+  max-width: 700px; /* Adjust this value to your preferred width */
+  width: 650px; /* Set a fixed width if you prefer */
+}
+
+/* Make sure the sliders and text inputs fit properly */
+.time-slider {
+  width: 200px; /* Adjust slider width */
+}
+
+.time-entry {
+  width: 100px; /* Wider text field for time display */
+}
+
+/* Make sure description area fits properly */
+.settings-box {
+  max-width: 650px; /* Slightly less than popup width */
+  width: auto;
+}
