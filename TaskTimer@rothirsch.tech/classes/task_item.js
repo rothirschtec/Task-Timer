@@ -30,20 +30,23 @@ export const TaskItem = GObject.registerClass(
         'delete_signal':        {},
         'moveUp_signal':        {},
         'moveDown_signal':      {},
-        'update_signal':        {},  // Note: No parameter expected
+        'update_signal':        {},
         'settings_signal':      {},
         'closeSettings_signal': {},
     },
 },
 class TaskItem extends PopupMenu.PopupBaseMenuItem {
 
-    _init(task) {
+    _init(task, parent) {
         super._init({
             reactive: true,
             can_focus: false,
             activate: false,
             style_class: 'task-row',
         });
+
+        // Store parent reference
+        this._parent = parent;
 
         // Crucial: Disable default PopupMenuItem behavior
         this._activatable = false;
@@ -134,7 +137,6 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
     }
 
     _connectSignals() {
-        // Button signals - use traditional functions for maximum compatibility
         this._play.connect('clicked', this._onPlayClicked.bind(this));
         this._pause.connect('clicked', this._onPauseClicked.bind(this));
         this._restart.connect('clicked', this._onRestartClicked.bind(this));
@@ -202,40 +204,58 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         // Stop any existing timer
         this._stopTimer();
         
-        // Log for debugging
         log("TaskTimer: Starting timer");
         
-        // Setup timer with traditional function for maximum compatibility
-        let self = this;
-        function timerCallback() {
-            if (!self || !self.task || !self.task.running) {
-                log("TaskTimer: Timer stopped (task no longer running)");
-                return false; // Stop the timer
+        // Use a simpler approach with the standard timeout_add_seconds
+        this._timerId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT, 
+            1,  // 1 second
+            () => {
+                // First check if we're still valid
+                if (!this.task || !this.task.running) {
+                    log("TaskTimer: Timer stopping - task no longer running");
+                    return false;
+                }
+                
+                // Update time
+                this.task.currTime++;
+                this._updateTimeLabel();
+                this._refreshBg();
+                
+                // Update parent (top bar)
+                if (this._parent) {
+                    try {
+                        this._parent.forceUpdateNow();
+                    } catch (e) {
+                        log("TaskTimer: Error updating parent: " + e);
+                    }
+                }
+                
+                // Notify if time reached
+                if (this.task.currTime === this.task.planned) {
+                    Main.notify(_('"%s" reached planned time').format(this.task.name));
+                }
+                
+                // Keep the timer running
+                return true;
             }
-            
-            self.task.currTime++;
-            self._updateTimeLabel();
-            self._refreshBg();
-            
-            if (self.task.currTime === self.task.planned) {
-                Main.notify(_('"%s" reached planned time').format(self.task.name));
-            }
-            
-            self.emit('update_signal');
-            return true; // Keep the timer running
-        }
+        );
         
-        // Use timeout_add_seconds for better reliability
-        this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, timerCallback);
         log("TaskTimer: Timer started with ID " + this._timerId);
         
-        // Force an initial tick
-        this.task.currTime++;
+        // Update UI immediately
         this._updateTimeLabel();
         this._refreshBg();
-        this.emit('update_signal');
+        
+        // Force parent update immediately
+        if (this._parent) {
+            try {
+                this._parent.forceUpdateNow();
+            } catch (e) {
+                log("TaskTimer: Error updating parent: " + e);
+            }
+        }
     }
-
     _stopTimer() {
         if (this._timerId) {
             log("TaskTimer: Removing timer with ID " + this._timerId);
@@ -244,14 +264,17 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         }
         
         this.task.lastStop = this.task.currTime;
+        
+        // Direct parent update
+        if (this._parent && typeof this._parent.forceUpdateNow === 'function') {
+            this._parent.forceUpdateNow();
+        }
+        
         this.emit('update_signal');
     }
 
-    // In task_item.js
     _updateTimeLabel() {
-        // Using mmss for both current time and planned time for consistency
-        this._timeLbl.text =
-            `${Utils.mmss(this.task.currTime)} / ${Utils.mmss(this.task.planned)}`;
+        this._timeLbl.text = `${Utils.mmss(this.task.currTime)} / ${Utils.mmss(this.task.planned)}`;
         this._timeLbl.set_style(this.task.currTime > this.task.planned ? 'color:#f55' : '');
     }
 

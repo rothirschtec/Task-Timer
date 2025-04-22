@@ -1,7 +1,7 @@
 // classes/task_timer.js
 //
 // Status‑area indicator, task list & JSON persistence – fixed for
-// event handling and settings panes on GNOME Shell 46 (GJS 1.78).
+// event handling and settings panes on GNOME Shell 46 (GJS 1.78).
 
 import GObject   from 'gi://GObject';
 import St        from 'gi://St';
@@ -53,11 +53,16 @@ class TaskTimer extends PanelMenu.Button {
         this._autosaveID = GLib.timeout_add_seconds(
             GLib.PRIORITY_LOW, 30,
             () => { this._saveState(); return GLib.SOURCE_CONTINUE; });
+            
+        // Backup timer for indicator updates (not critical now with direct updates)
+        this._updateTimerID = GLib.timeout_add_seconds(
+            GLib.PRIORITY_LOW, 5,
+            () => { this._updateIndicator(); return GLib.SOURCE_CONTINUE; });
     }
 
-    /* ─────────── “＋ New task …” ─────────── */
+    /* ─────────── "＋ New task …" ─────────── */
     _buildNewTaskRow() {
-        this._newRow = new PopupMenu.PopupSubMenuMenuItem(_('＋ New task…'), true);
+        this._newRow = new PopupMenu.PopupSubMenuMenuItem(_('＋ New task…'), true);
         this.menu.addMenuItem(this._newRow);
 
         const box = new St.BoxLayout({ style_class: 'popup-combobox-item' });
@@ -68,7 +73,7 @@ class TaskTimer extends PanelMenu.Button {
                                        style_class: 'popup-menu-item' });
 
         box.add_child(this._entry);
-        box.add_child(new St.Label({ text: _('  min ') }));
+        box.add_child(new St.Label({ text: _('  min ') }));
         box.add_child(this._slider.actor);
         box.add_child(this._addBtn);
         this._newRow.menu.box.add_child(box);
@@ -77,12 +82,11 @@ class TaskTimer extends PanelMenu.Button {
         this._addBtn.connect('clicked', () => this._onAdd());
         this._slider.connect('notify::value', () => {
             const m = Math.round(this._slider.value * 100);
-            this._newRow.label.text = m ? _(`＋ New task… (${m} min)`)
-                                        : _('＋ New task…');
+            this._newRow.label.text = m ? _(`＋ New task… (${m} min)`)
+                                        : _('＋ New task…');
         });
     }
 
-    // In task_timer.js
     _onAdd() {
         const name = this._entry.get_text().trim();
         const mins = Math.round(this._slider.value * 100);
@@ -90,22 +94,21 @@ class TaskTimer extends PanelMenu.Button {
 
         /* reset UI */
         this._entry.set_text('');
-        this._slider.value = 0;
+        this._slider.value   = 0;
         this._newRow.label.text = _('＋ New task…');
 
         const task = {
-            name, 
-            planned: mins * 60, // This converts minutes to seconds correctly
-            currTime: 0, 
-            lastStop: 0,
-            color: Utils.generateColor(), 
-            running: false,
-            weekdays: { /* ... */ },
+            name, planned: mins * 60, currTime: 0, lastStop: 0,
+            color: Utils.generateColor(), running: false,
+            weekdays: { sunday:'0:00/0:00', monday:'0:00/0:00', tuesday:'0:00/0:00',
+                        wednesday:'0:00/0:00', thursday:'0:00/0:00', friday:'0:00/0:00',
+                        saturday:'0:00/0:00' },
             description: _('Enter description here!'),
         };
         this._tasks.unshift(task);
         this._insertTaskRow(task, true);
     }
+
     _flashRow() {
         this._newRow.label.set_style('color:#f55');
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 700,
@@ -114,13 +117,14 @@ class TaskTimer extends PanelMenu.Button {
 
     /* ─────────── task rows ─────────── */
     _insertTaskRow(task, save) {
-        const row = new TaskItem(task);
+        // Pass this (the TaskTimer) as the parent
+        const row = new TaskItem(task, this);
 
-        row.connect('delete_signal',        () => this._deleteTask(row));
-        row.connect('moveUp_signal',        () => this._moveRow(row, -1));
-        row.connect('moveDown_signal',      () => this._moveRow(row,  1));
-        row.connect('update_signal',        () => this._updateIndicator());
-        row.connect('settings_signal',      () => this._openSettings(row));
+        row.connect('delete_signal', () => this._deleteTask(row));
+        row.connect('moveUp_signal', () => this._moveRow(row, -1));
+        row.connect('moveDown_signal', () => this._moveRow(row, 1));
+        row.connect('update_signal', () => this._updateIndicator());
+        row.connect('settings_signal', () => this._openSettings(row));
         row.connect('closeSettings_signal', () => this._closeSettings(row));
 
         this._taskSection.addMenuItem(row, 0);
@@ -165,6 +169,7 @@ class TaskTimer extends PanelMenu.Button {
         this._taskSection.addMenuItem(settings, idx + 1);
         row._settingsRow = settings;
     }
+    
     _closeSettings(row) {
         if (row._settingsRow) { row._settingsRow.destroy(); row._settingsRow = null; }
     }
@@ -173,7 +178,23 @@ class TaskTimer extends PanelMenu.Button {
     _updateIndicator() {
         let spent = 0, planned = 0;
         this._tasks.forEach(t => { spent += t.currTime; planned += t.planned; });
-        this._label.text = `${Utils.convertTime(spent)} / ${Utils.convertTime(planned)}`;
+        this._label.text = `${Utils.mmss(spent)} / ${Utils.mmss(planned)}`;
+    }
+    
+    // Direct update method that TaskItems can call
+
+    forceUpdateNow() {
+        let spent = 0, planned = 0;
+        this._tasks.forEach(t => { 
+            spent += t.currTime; 
+            planned += t.planned; 
+        });
+        
+        // Use the same format as the task item display
+        this._label.text = `${Utils.mmss(spent)} / ${Utils.mmss(planned)}`;
+        
+        // For debugging
+        log(`TaskTimer: Top bar updated - ${spent}s / ${planned}s`);
     }
 
     /* ─────────── persistence ─────────── */
@@ -181,11 +202,13 @@ class TaskTimer extends PanelMenu.Button {
         if (!GLib.file_test(CONFIG_DIR, GLib.FileTest.IS_DIR))
             GLib.mkdir_with_parents(CONFIG_DIR, 0o700);
     }
+    
     _saveState() {
         this._ensureDir();
         try { GLib.file_set_contents(STATE_FILE, JSON.stringify(this._tasks)); }
         catch (e) { log(`TaskTimer: save failed – ${e}`); }
     }
+    
     _loadState() {
         this._ensureDir();
         if (!GLib.file_test(STATE_FILE, GLib.FileTest.EXISTS)) return;
@@ -202,8 +225,9 @@ class TaskTimer extends PanelMenu.Button {
     disable() {
         if (this._autosaveID) GLib.source_remove(this._autosaveID);
         this._autosaveID = 0;
+        if (this._updateTimerID) GLib.source_remove(this._updateTimerID);
+        this._updateTimerID = 0;
         this._saveState();
         this.menu.removeAll();
     }
 });
-
