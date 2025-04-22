@@ -1,21 +1,17 @@
-/* extension.js — GNOME 45/46 compliant */
+/* GNOME 46 entry‑point — exports default class */
 
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main                   from 'resource:///org/gnome/shell/ui/main.js';
-
-import TaskTimer from './classes/task_timer.js';
+import TaskTimer                   from './classes/task_timer.js';
 
 export default class TaskTimerExtension extends Extension {
     enable()  {
         this._indicator = new TaskTimer();
-        Main.panel.addToStatusArea('task‑timer', this._indicator);
+        Main.panel.addToStatusArea('task-timer', this._indicator);
     }
-
     disable() {
-        if (this._indicator) {
-            this._indicator.destroy();
-            this._indicator = null;
-        }
+        this._indicator?.destroy();
+        this._indicator = null;
     }
 }
 
