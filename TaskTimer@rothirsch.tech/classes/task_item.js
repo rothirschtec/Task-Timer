@@ -81,10 +81,16 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         // Left side - Play/Pause
         this._play = new St.Button({
             style_class: 'task-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
             child: new St.Icon({ gicon: PLAY_ICON }),
         });
         this._pause = new St.Button({
             style_class: 'task-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
             child: new St.Icon({ gicon: PAUSE_ICON }),
         });
         this._pause.hide();
@@ -103,22 +109,37 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         // Right side - Controls
         this._restart = new St.Button({
             style_class: 'task-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
             child: new St.Icon({ gicon: RESTART_ICON }),
         });
         this._delete = new St.Button({
             style_class: 'task-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
             child: new St.Icon({ gicon: DELETE_ICON }),
         });
         this._up = new St.Button({
             style_class: 'task-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
             child: new St.Icon({ gicon: UP_ICON }),
         });
         this._down = new St.Button({
             style_class: 'task-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
             child: new St.Icon({ gicon: DOWN_ICON }),
         });
         this._gear = new St.Button({
             style_class: 'task-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
             child: new St.Icon({ gicon: GEAR_ICON }),
         });
         
@@ -190,12 +211,17 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
     }
 
     _onGearClicked() {
-        log("TaskTimer: Gear clicked");
+        log(`TaskTimer: Gear clicked - task=${this.task.name}, settingsOpen=${this.settingsOpen}`);
+        
+        // Toggle settings state
         this.settingsOpen = !this.settingsOpen;
         
+        // Emit the right signal - this is crucial
         if (this.settingsOpen) {
+            log("TaskTimer: Emitting settings_signal");
             this.emit('settings_signal');
         } else {
+            log("TaskTimer: Emitting closeSettings_signal");
             this.emit('closeSettings_signal');
         }
     }
@@ -206,56 +232,53 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         
         log("TaskTimer: Starting timer");
         
-        // Use a simpler approach with the standard timeout_add_seconds
-        this._timerId = GLib.timeout_add_seconds(
-            GLib.PRIORITY_DEFAULT, 
-            1,  // 1 second
+        // Setup timer with GLib.timeout_add
+        this._timerId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            1000, // 1000ms = 1 second
             () => {
-                // First check if we're still valid
+                // Check if task is still running
                 if (!this.task || !this.task.running) {
-                    log("TaskTimer: Timer stopping - task no longer running");
-                    return false;
+                    log("TaskTimer: Timer stopped (task no longer running)");
+                    return false; // Stop the timer
                 }
                 
-                // Update time
+                // Update task time
                 this.task.currTime++;
                 this._updateTimeLabel();
                 this._refreshBg();
                 
-                // Update parent (top bar)
-                if (this._parent) {
-                    try {
-                        this._parent.forceUpdateNow();
-                    } catch (e) {
-                        log("TaskTimer: Error updating parent: " + e);
-                    }
+                // Direct update to parent timer
+                if (this._parent && typeof this._parent.forceUpdateNow === 'function') {
+                    this._parent.forceUpdateNow();
                 }
                 
-                // Notify if time reached
+                // Emit signal for other listeners
+                this.emit('update_signal');
+                
+                // Notify if planned time reached
                 if (this.task.currTime === this.task.planned) {
                     Main.notify(_('"%s" reached planned time').format(this.task.name));
                 }
                 
-                // Keep the timer running
-                return true;
+                return true; // Keep the timer running
             }
         );
         
         log("TaskTimer: Timer started with ID " + this._timerId);
         
-        // Update UI immediately
+        // Force an initial update
         this._updateTimeLabel();
         this._refreshBg();
         
-        // Force parent update immediately
-        if (this._parent) {
-            try {
-                this._parent.forceUpdateNow();
-            } catch (e) {
-                log("TaskTimer: Error updating parent: " + e);
-            }
+        // Direct parent update
+        if (this._parent && typeof this._parent.forceUpdateNow === 'function') {
+            this._parent.forceUpdateNow();
         }
+        
+        this.emit('update_signal');
     }
+
     _stopTimer() {
         if (this._timerId) {
             log("TaskTimer: Removing timer with ID " + this._timerId);
@@ -281,8 +304,10 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
     _refreshBg() {
         const frac = Math.min(1, this.task.currTime / this.task.planned);
         const px = Math.floor(frac * PROGRESS_LEN);
+        
+        // Use a relative path from the extension's directory
         this.set_style(`background-color:${this.task.color};
-                        background-image:url('icons/progress_bar.png');
+                        background-image:url('./icons/progress_bar.png');
                         background-position:${px}px 0;
                         background-repeat:no-repeat;`);
     }

@@ -105,3 +105,42 @@
   width: 40px;
   color: #b0b0b0;
 }
+
+/* Color picker */
+.color-grid {
+  margin: 0 10px;
+}
+
+.random-color-btn {
+  border-radius: 6px;
+  padding: 4px 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+  margin-left: 8px;
+}
+
+/* Checkbox styling */
+.checkbox-row {
+  border-radius: 8px;
+  margin: 6px 0;
+  padding: 10px;
+}
+
+.checkbox-container {
+  margin: 0 10px;
+}
+
+.checkbox-button {
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  margin: 0 2px;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.checkbox-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.checkbox-button:active {
+  background-color: rgba(255, 255, 255, 0.3);
+}

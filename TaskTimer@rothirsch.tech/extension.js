@@ -1,4 +1,4 @@
-/* GNOME 46 entry‑point — exports default class */
+/* GNOME 46 entry‑point — exports default class */
 
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main                   from 'resource:///org/gnome/shell/ui/main.js';
@@ -14,4 +14,3 @@ export default class TaskTimerExtension extends Extension {
         this._indicator = null;
     }
 }
-
