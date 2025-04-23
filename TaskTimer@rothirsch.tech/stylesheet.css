@@ -276,3 +276,59 @@
   padding: 4px 8px;
   color: white;
 }
+
+/* Add these to your existing stylesheet.css */
+
+/* History dialog styling */
+.history-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  text-align: center;
+  padding: 8px;
+}
+
+.history-scroll {
+  max-height: 300px;
+}
+
+.history-task-row {
+  border-radius: 8px;
+  margin: 4px 0;
+  padding: 8px 12px;
+}
+
+/* History menu item */
+.history-menu-label {
+  font-weight: normal;
+}
+
+.history-date-item {
+  padding: 8px 16px;
+}
+
+.history-date-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* New Day Notification */
+.new-day-notification {
+  background-color: rgba(0, 0, 0, 0.8);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.new-day-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: white;
+}
+
+.new-day-message {
+  font-size: 14px;
+  color: #cccccc;
+  margin-bottom: 10px;
+}

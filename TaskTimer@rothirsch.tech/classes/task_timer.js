@@ -2,6 +2,7 @@
 //
 // Status‑area indicator, task list & JSON persistence – fixed for
 // event handling and settings panes on GNOME Shell 46 (GJS 1.78).
+// Updated with daily data storage and reset functionality.
 
 import GObject   from 'gi://GObject';
 import St        from 'gi://St';
@@ -12,6 +13,8 @@ import GLib      from 'gi://GLib';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Slider    from 'resource:///org/gnome/shell/ui/slider.js';
+import * as Dialog    from 'resource:///org/gnome/shell/ui/dialog.js';
+import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { TaskItem }     from './task_item.js';
@@ -21,6 +24,7 @@ import CheckboxSettings from './checkbox_settings.js';
 import * as Utils       from './utils.js';
 
 const PLUS_ICON = Gio.icon_new_for_string('list-add-symbolic');
+const HISTORY_ICON = Gio.icon_new_for_string('document-open-recent-symbolic');
 
 /* ~/.config/TaskTimer/state.json */
 const CONFIG_DIR = GLib.build_filenamev([GLib.get_user_config_dir(), 'TaskTimer']);
@@ -32,8 +36,12 @@ class TaskTimer extends PanelMenu.Button {
     _init() {
         super._init(0.0, 'Task Timer');
 
-        /* load saved tasks */
+        /* initialize state */
         this._tasks = [];
+        this._taskHistory = {};
+        this._lastDate = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD format
+        
+        /* load saved tasks */
         this._loadState();
 
         /* top‑bar label */
@@ -47,6 +55,7 @@ class TaskTimer extends PanelMenu.Button {
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this._buildNewTaskRow();
         this._buildCheckboxRow();
+        this._buildHistoryMenu();
 
         /* recreate tasks */
         this._tasks.forEach(t => {
@@ -117,6 +126,7 @@ class TaskTimer extends PanelMenu.Button {
                                         : _('＋ New task…');
         });
     }
+    
     /* ─────────── "＋ New checklist…" ─────────── */
     _buildCheckboxRow() {
         this._checkboxRow = new PopupMenu.PopupSubMenuMenuItem(_('＋ New checklist…'), true);
@@ -171,6 +181,138 @@ class TaskTimer extends PanelMenu.Button {
                                             : _('＋ New checklist…');
         });
     }
+    
+    /* ─────────── History Menu ─────────── */
+    _buildHistoryMenu() {
+        this._historyItem = new PopupMenu.PopupSubMenuMenuItem(_('View History…'), true);
+        this._historyItem.icon.gicon = HISTORY_ICON;
+        this.menu.addMenuItem(this._historyItem);
+        
+        this._updateHistoryMenu();
+    }
+    
+    _updateHistoryMenu() {
+        // Clear existing items
+        this._historyItem.menu.removeAll();
+        
+        // Add days from history
+        const dates = Object.keys(this._taskHistory || {}).sort().reverse();
+        if (dates.length === 0) {
+            // No history
+            const noHistoryItem = new PopupMenu.PopupMenuItem(_('No history available'));
+            noHistoryItem.setSensitive(false);
+            this._historyItem.menu.addMenuItem(noHistoryItem);
+        } else {
+            // Add last 7 days of history
+            dates.slice(0, 7).forEach(date => {
+                const dateItem = new PopupMenu.PopupMenuItem(this._formatDateForDisplay(date));
+                dateItem.connect('activate', () => {
+                    this._showHistoryForDate(date);
+                });
+                this._historyItem.menu.addMenuItem(dateItem);
+            });
+        }
+    }
+    
+    _formatDateForDisplay(dateStr) {
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString();
+        } catch (e) {
+            return dateStr;
+        }
+    }
+    
+    _showHistoryForDate(dateStr) {
+        if (!this._taskHistory[dateStr]) {
+            return;
+        }
+        
+        // Create a modal dialog to show history
+        const dialog = new ModalDialog.ModalDialog();
+        dialog.contentLayout.style = 'width: 500px; max-height: 400px;';
+        
+        // Title
+        const title = new St.Label({
+            text: _(`Task History for ${this._formatDateForDisplay(dateStr)}`),
+            style_class: 'history-title',
+            style: 'font-weight: bold; font-size: 16px; text-align: center; margin-bottom: 15px;'
+        });
+        dialog.contentLayout.add_child(title);
+        
+        // Task list
+        const scrollView = new St.ScrollView({
+            style_class: 'history-scroll',
+            y_expand: true
+        });
+        const taskBox = new St.BoxLayout({
+            vertical: true,
+            style: 'spacing: 10px; padding: 10px;'
+        });
+        scrollView.add_actor(taskBox);
+        
+        // Add task entries
+        const historyTasks = this._taskHistory[dateStr];
+        historyTasks.forEach(task => {
+            if (task.isCheckbox) {
+                // Checkbox task
+                const checkboxRow = new St.BoxLayout({
+                    style_class: 'history-task-row',
+                    style: `background-color: ${task.color}; border-radius: 8px; padding: 10px;`
+                });
+                
+                checkboxRow.add_child(new St.Label({
+                    text: task.name,
+                    x_expand: true
+                }));
+                
+                // Add checkbox indicators
+                const checkboxContainer = new St.BoxLayout({
+                    style: 'spacing: 5px;'
+                });
+                
+                if (task.checked && task.checkCount) {
+                    const checkedCount = task.checked.filter(Boolean).length;
+                    checkboxContainer.add_child(new St.Label({
+                        text: `${checkedCount}/${task.checkCount} completed`,
+                        style: 'font-style: italic;'
+                    }));
+                }
+                
+                checkboxRow.add_child(checkboxContainer);
+                taskBox.add_child(checkboxRow);
+            } else {
+                // Timer task
+                const taskRow = new St.BoxLayout({
+                    style_class: 'history-task-row',
+                    style: `background-color: ${task.color}; border-radius: 8px; padding: 10px;`
+                });
+                
+                taskRow.add_child(new St.Label({
+                    text: task.name,
+                    x_expand: true
+                }));
+                
+                taskRow.add_child(new St.Label({
+                    text: `${Utils.mmss(task.currTime)} / ${Utils.mmss(task.planned)}`,
+                    style: task.currTime > task.planned ? 'color: #f55;' : ''
+                }));
+                
+                taskBox.add_child(taskRow);
+            }
+        });
+        
+        dialog.contentLayout.add_child(scrollView);
+        
+        // OK button
+        dialog.setButtons([{
+            label: _('Close'),
+            action: () => dialog.close(),
+            key: Clutter.KEY_Escape
+        }]);
+        
+        dialog.open();
+    }
 
     _onAdd() {
         const name = this._entry.get_text().trim();
@@ -182,13 +324,36 @@ class TaskTimer extends PanelMenu.Button {
         this._slider.value   = 0;
         this._newRow.label.text = _('＋ New task…');
 
+        // Get current day for weekdays initialization
+        const today = new Date();
+        const dayIndex = today.getDay();
+        const dayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const dayKey = dayMap[dayIndex];
+        
+        // Initialize weekdays with all days at 0:00 except today
+        const weekdays = {
+            sunday: '0:00/0:00/0:00',
+            monday: '0:00/0:00/0:00',
+            tuesday: '0:00/0:00/0:00',
+            wednesday: '0:00/0:00/0:00',
+            thursday: '0:00/0:00/0:00',
+            friday: '0:00/0:00/0:00',
+            saturday: '0:00/0:00/0:00'
+        };
+        
+        // Set planned time for today
+        weekdays[dayKey] = `0:00/${Utils.convertTime(mins * 60)}/0:00`;
+
         const task = {
-            name, planned: mins * 60, currTime: 0, lastStop: 0,
-            color: Utils.generateColor(), running: false,
-            weekdays: { sunday:'0:00/0:00', monday:'0:00/0:00', tuesday:'0:00/0:00',
-                        wednesday:'0:00/0:00', thursday:'0:00/0:00', friday:'0:00/0:00',
-                        saturday:'0:00/0:00' },
+            name, 
+            planned: mins * 60, 
+            currTime: 0, 
+            lastStop: 0,
+            color: Utils.generateColor(), 
+            running: false,
+            weekdays: weekdays,
             description: _('Enter description here!'),
+            createdOn: this._lastDate // Store creation date
         };
         this._tasks.unshift(task);
         this._insertTaskRow(task, true);
@@ -211,6 +376,7 @@ class TaskTimer extends PanelMenu.Button {
             checked: Array(boxes).fill(false),
             color: Utils.generateColor(),
             description: _('Enter description here!'),
+            createdOn: this._lastDate // Store creation date
         };
         this._tasks.unshift(task);
         this._insertCheckboxRow(task, true);
@@ -404,7 +570,16 @@ class TaskTimer extends PanelMenu.Button {
     
     _saveState() {
         this._ensureDir();
-        try { GLib.file_set_contents(STATE_FILE, JSON.stringify(this._tasks)); }
+        try { 
+            // Create the data structure with dates
+            const saveData = {
+                lastDate: this._lastDate,
+                tasks: this._tasks,
+                taskHistory: this._taskHistory
+            };
+            
+            GLib.file_set_contents(STATE_FILE, JSON.stringify(saveData)); 
+        }
         catch (e) { log(`TaskTimer: save failed – ${e}`); }
     }
     
@@ -414,10 +589,69 @@ class TaskTimer extends PanelMenu.Button {
         try {
             const [ok, bytes] = GLib.file_get_contents(STATE_FILE);
             if (ok) {
-                const arr = JSON.parse(imports.byteArray.toString(bytes));
-                if (Array.isArray(arr)) this._tasks = arr;
+                const data = JSON.parse(imports.byteArray.toString(bytes));
+                
+                // Store historical data separately
+                this._taskHistory = data.taskHistory || {};
+                
+                // Check if we need to use today's data or create new
+                const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+                
+                if (data.lastDate === today && data.tasks) {
+                    // Use today's data
+                    this._tasks = data.tasks;
+                    this._lastDate = today;
+                    log(`TaskTimer: Loaded current day's data (${today})`);
+                } else {
+                    // New day - initialize with zero values but preserve names/structures
+                    this._lastDate = today;
+                    
+                    if (data.lastDate && data.tasks && data.tasks.length > 0) {
+                        log(`TaskTimer: New day detected! Storing previous day (${data.lastDate}) in history`);
+                        // Store previous day's data in history
+                        this._taskHistory[data.lastDate] = data.tasks;
+                        // Initialize new day based on previous tasks
+                        this._tasks = this._initializeNewDay(data.tasks);
+                    } else {
+                        // First run or no previous tasks
+                        this._tasks = [];
+                    }
+                }
             }
         } catch (e) { log(`TaskTimer: load failed – ${e}`); }
+    }
+    
+    // New function to initialize a new day with zeroed values
+    _initializeNewDay(previousTasks) {
+        log("TaskTimer: Initializing new day with reset values");
+        return previousTasks.map(task => {
+            const newTask = {...task};
+            
+            if (task.isCheckbox) {
+                // Reset checkbox values
+                newTask.checked = Array(task.checkCount).fill(false);
+                log(`TaskTimer: Reset checkboxes for "${task.name}"`);
+            } else {
+                // Reset timer values but keep planned time
+                newTask.currTime = 0;
+                newTask.lastStop = 0;
+                newTask.running = false;
+                
+                // Reset current day in weekdays
+                const dayIndex = new Date().getDay();
+                const dayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                const today = dayMap[dayIndex];
+                
+                // Format: "current/planned/lastStop"
+                // Preserve the planned time from previous day
+                const plannedTime = Utils.convertTime(task.planned);
+                newTask.weekdays[today] = `0:00/${plannedTime}/0:00`;
+                
+                log(`TaskTimer: Reset timer for "${task.name}", planned: ${plannedTime}`);
+            }
+            
+            return newTask;
+        });
     }
 
     /* ─────────── cleanup ─────────── */
