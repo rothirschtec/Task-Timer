@@ -1,6 +1,6 @@
 // classes/task_item.js
 // Compatible with GNOME Shell 46 (GJS 1.78)
-// Updated with namespaced CSS classes
+// Updated with namespaced CSS classes and overflow indicator
 
 import GObject  from 'gi://GObject';
 import St       from 'gi://St';
@@ -302,31 +302,40 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
 
     _updateTimeLabel() {
         this._timeLbl.text = `${Utils.mmss(this.task.currTime)} / ${Utils.mmss(this.task.planned)}`;
-        this._timeLbl.set_style(this.task.currTime > this.task.planned ? 'color:#f55' : '');
+        this._timeLbl.set_style(this.task.currTime > this.task.planned ? 'color:#f55; font-weight: bold;' : '');
         
-        // Add this line to force progress bar update
+        // Force progress bar update
         this._refreshBg();
     }
 
     _refreshBg() {
-        let frac;
+        // Check if we've exceeded the planned time
+        const isOvertime = this.task.currTime > this.task.planned && this.task.planned > 0;
         
-        // Calculate how "full" the progress should be
-        if (this.task.currTime >= this.task.planned && this.task.planned > 0) {
-            // When at 100% or over, fill to 95% of the available width
-            frac = 0.95;
+        // For overtime, use max progress with special border
+        if (isOvertime) {
+            // Use a pulsing border animation for overtime
+            this.set_style(`
+                background-color: ${this.task.color};
+                border-radius: 8px;
+                box-shadow: inset ${Math.floor(PROGRESS_LEN * 0.95)}px 0 0 0 rgba(0,0,0,0.3);
+                border: 2px solid #f55;
+                animation: tasktimer-overtime-pulse 2s infinite;
+            `);
         } else {
             // Normal proportional progress (0-95%)
-            frac = this.task.planned > 0 ? Math.min(0.95, (this.task.currTime / this.task.planned) * 0.95) : 0;
+            const frac = this.task.planned > 0 ? 
+                Math.min(0.95, (this.task.currTime / this.task.planned) * 0.95) : 0;
+            
+            this.set_style(`
+                background-color: ${this.task.color};
+                border-radius: 8px;
+                box-shadow: inset ${Math.floor(PROGRESS_LEN * frac)}px 0 0 0 rgba(0,0,0,0.3);
+                border: none;
+            `);
         }
-        
-        // Apply the styling with the calculated fill
-        this.set_style(`
-            background-color: ${this.task.color};
-            border-radius: 8px;
-            box-shadow: inset ${Math.floor(PROGRESS_LEN * frac)}px 0 0 0 rgba(0,0,0,0.3);
-        `);
     }
+
     destroy() {
         this._stopTimer();
         super.destroy();
