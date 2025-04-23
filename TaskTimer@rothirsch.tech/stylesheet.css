@@ -1,14 +1,14 @@
-/* Modern stylesheet for Task Timer - GNOME Shell compatible */
+/* TaskTimer Stylesheet - With namespaced classes to avoid conflicts */
 
 /* Task rows */
-.task-row {
+.tasktimer-row {
   border-radius: 8px;
   margin: 6px 0;
   padding: 10px;
 }
 
 /* Buttons styling */
-.task-button {
+.tasktimer-button {
   border-radius: 16px;
   width: 32px;
   height: 32px;
@@ -17,30 +17,30 @@
   border: none;
 }
 
-.task-button:hover {
+.tasktimer-button:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-.task-button:active {
+.tasktimer-button:active {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Time label */
-.time-label {
+.tasktimer-time-label {
   font-size: 14px;
   font-weight: bold;
   margin: 0 10px;
 }
 
 /* New task section */
-.new-task-box {
+.tasktimer-new-task-box {
   padding: 12px 15px;
   border-radius: 8px;
   background-color: rgba(255, 255, 255, 0.05);
   margin: 6px 0;
 }
 
-.new-task-entry {
+.tasktimer-new-task-entry {
   border-radius: 6px;
   padding: 8px 12px;
   background-color: rgba(255, 255, 255, 0.1);
@@ -50,14 +50,14 @@
   width: 180px;
 }
 
-.new-task-slider {
+.tasktimer-new-task-slider {
   height: 6px;
   border-radius: 3px;
   background-color: rgba(255, 255, 255, 0.15);
 }
 
 /* Settings panel */
-.settings-box {
+.tasktimer-settings-box {
   padding: 12px 15px;
   margin: 8px 0;
   min-height: 50px;
@@ -67,13 +67,13 @@
   border-radius: 8px;
 }
 
-.settings-label {
+.tasktimer-settings-label {
   font-size: 16px;
   color: #b0b0b0;
   min-width: 120px;
 }
 
-.time-slider {
+.tasktimer-time-slider {
   height: 8px;
   border-radius: 4px;
   background-color: rgba(255, 255, 255, 0.15);
@@ -81,7 +81,7 @@
   min-width: 180px;
 }
 
-.time-slider .slider-thumb {
+.tasktimer-time-slider .slider-thumb {
   width: 18px;
   height: 18px;
   border-radius: 9px;
@@ -89,7 +89,7 @@
 }
 
 /* Time input styling */
-.time-entry {
+.tasktimer-time-entry {
   width: 100px;
   height: 36px;
   margin-left: 15px;
@@ -101,13 +101,13 @@
   padding: 0 8px;
 }
 
-.time-entry:focus {
+.tasktimer-time-entry:focus {
   background-color: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 /* Minute adjustment buttons */
-.time-button {
+.tasktimer-time-button {
   width: 30px;
   height: 30px;
   border-radius: 15px;
@@ -118,16 +118,17 @@
   margin: 0 5px;
 }
 
-.time-button:hover {
+.tasktimer-time-button:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-.time-button:active {
+.tasktimer-time-button:active {
   background-color: rgba(255, 255, 255, 0.3);
 }
 
 /* Description styling */
-.description-btn, .description-label {
+.tasktimer-description-btn, 
+.tasktimer-description-label {
   border-radius: 6px;
   padding: 8px;
   background-color: rgba(255, 255, 255, 0.05);
@@ -136,12 +137,12 @@
   min-height: 40px;
 }
 
-.description-label:focus {
+.tasktimer-description-label:focus {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Weekday table */
-.weekday-label {
+.tasktimer-weekday-label {
   font-size: 12px;
   font-weight: bold;
   text-align: center;
@@ -150,26 +151,26 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.weekday-times {
+.tasktimer-weekday-times {
   font-size: 11px;
   text-align: center;
   padding: 4px 0;
 }
 
-.weekday-header {
+.tasktimer-weekday-header {
   font-size: 10px;
   width: 40px;
   color: #b0b0b0;
 }
 
 /* Color picker */
-.color-grid {
+.tasktimer-color-grid {
   margin: 0 10px;
   display: flex;
   flex-wrap: wrap;
 }
 
-.random-color-btn {
+.tasktimer-random-color-btn {
   border-radius: 6px;
   padding: 8px 12px;
   background-color: rgba(255, 255, 255, 0.1);
@@ -178,22 +179,22 @@
   font-size: 14px;
 }
 
-.random-color-btn:hover {
+.tasktimer-random-color-btn:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Checkbox styling */
-.checkbox-row {
+.tasktimer-checkbox-row {
   border-radius: 8px;
   margin: 6px 0;
   padding: 10px;
 }
 
-.checkbox-container {
+.tasktimer-checkbox-container {
   margin: 0 10px;
 }
 
-.checkbox-button {
+.tasktimer-checkbox-button {
   border-radius: 4px;
   width: 24px;
   height: 24px;
@@ -201,74 +202,75 @@
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-.checkbox-button:hover {
+.tasktimer-checkbox-button:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-.checkbox-button:active {
+.tasktimer-checkbox-button:active {
   background-color: rgba(255, 255, 255, 0.3);
 }
 
-/* Control popup menu width */
-.popup-menu-content {
-  max-width: 700px; /* Adjust this value to your preferred width */
-  width: 650px; /* Set a fixed width if you prefer */
+/* Control popup menu width, only for this extension */
+.tasktimer-popup .popup-menu-content {
+  max-width: 700px;
+  width: 650px;
 }
 
 /* Make sure the sliders and text inputs fit properly */
-.time-slider {
-  width: 200px; /* Adjust slider width */
+.tasktimer-time-slider {
+  width: 200px;
 }
 
-.time-entry {
-  width: 100px; /* Wider text field for time display */
+.tasktimer-time-entry {
+  width: 100px;
 }
 
 /* Make sure description area fits properly */
-.settings-box {
-  max-width: 650px; /* Slightly less than popup width */
+.tasktimer-settings-box {
+  max-width: 650px;
   width: auto;
 }
 
 /* Improve time display readability */
-.time-label, ._timeLbl {
-    font-size: 16px;
-    font-weight: bold;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-    margin: 0 10px;
+.tasktimer-time-label, 
+.tasktimer-timer-display {
+  font-size: 16px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  margin: 0 10px;
 }
 
 /* More readable task names */
-.task-row .task-name {
-    font-size: 16px;
-    font-weight: 600;
+.tasktimer-row .tasktimer-name {
+  font-size: 16px;
+  font-weight: 600;
 }
 
 /* Better contrast for time displays */
-.time-entry {
-    background-color: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    font-weight: bold;
-    text-align: center;
-    width: 80px !important;
+.tasktimer-time-entry {
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: bold;
+  text-align: center;
+  width: 80px !important;
 }
 
-/* Add this to your stylesheet.css file */
-.popup-combobox-item {
+/* Combobox styling */
+.tasktimer-combobox-item {
   padding: 8px;
   spacing: 8px;
 }
 
-.popup-combobox-item .popup-menu-item {
+.tasktimer-combobox-item .popup-menu-item {
   margin: 0 4px;
 }
 
-.popup-combobox-item .popup-menu-item:hover {
+.tasktimer-combobox-item .popup-menu-item:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Ensure text entries are visible */
-.popup-combobox-item St.Entry {
+.tasktimer-combobox-item St.Entry {
   min-width: 150px;
   background-color: rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -277,10 +279,8 @@
   color: white;
 }
 
-/* Add these to your existing stylesheet.css */
-
 /* History dialog styling */
-.history-title {
+.tasktimer-history-title {
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 15px;
@@ -288,31 +288,31 @@
   padding: 8px;
 }
 
-.history-scroll {
+.tasktimer-history-scroll {
   max-height: 300px;
 }
 
-.history-task-row {
+.tasktimer-history-task-row {
   border-radius: 8px;
   margin: 4px 0;
   padding: 8px 12px;
 }
 
 /* History menu item */
-.history-menu-label {
+.tasktimer-history-menu-label {
   font-weight: normal;
 }
 
-.history-date-item {
+.tasktimer-history-date-item {
   padding: 8px 16px;
 }
 
-.history-date-item:hover {
+.tasktimer-history-date-item:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* New Day Notification */
-.new-day-notification {
+.tasktimer-new-day-notification {
   background-color: rgba(0, 0, 0, 0.8);
   border-radius: 12px;
   padding: 16px;
@@ -320,14 +320,14 @@
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.new-day-title {
+.tasktimer-new-day-title {
   font-size: 18px;
   font-weight: bold;
   margin-bottom: 10px;
   color: white;
 }
 
-.new-day-message {
+.tasktimer-new-day-message {
   font-size: 14px;
   color: #cccccc;
   margin-bottom: 10px;

@@ -1,5 +1,6 @@
 // classes/task_item.js
 // Compatible with GNOME Shell 46 (GJS 1.78)
+// Updated with namespaced CSS classes
 
 import GObject  from 'gi://GObject';
 import St       from 'gi://St';
@@ -42,7 +43,7 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
             reactive: true,
             can_focus: false,
             activate: false,
-            style_class: 'task-row',
+            style_class: 'tasktimer-row',
         });
 
         // Store parent reference
@@ -80,14 +81,14 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
     _buildLayout() {
         // Left side - Play/Pause
         this._play = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
             child: new St.Icon({ gicon: PLAY_ICON }),
         });
         this._pause = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
@@ -102,41 +103,44 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         // Center - Name & Time
         this._name = new St.Label({ 
             text: this.task.name,
+            style_class: 'tasktimer-name',
             x_expand: true
         });
-        this._timeLbl = new St.Label();
+        this._timeLbl = new St.Label({
+            style_class: 'tasktimer-timer-display'
+        });
         
         // Right side - Controls
         this._restart = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
             child: new St.Icon({ gicon: RESTART_ICON }),
         });
         this._delete = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
             child: new St.Icon({ gicon: DELETE_ICON }),
         });
         this._up = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
             child: new St.Icon({ gicon: UP_ICON }),
         });
         this._down = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
             child: new St.Icon({ gicon: DOWN_ICON }),
         });
         this._gear = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
@@ -296,7 +300,6 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         this.emit('update_signal');
     }
 
-    // In the _updateTimeLabel() method, add this at the end:
     _updateTimeLabel() {
         this._timeLbl.text = `${Utils.mmss(this.task.currTime)} / ${Utils.mmss(this.task.planned)}`;
         this._timeLbl.set_style(this.task.currTime > this.task.planned ? 'color:#f55' : '');

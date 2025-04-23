@@ -1,4 +1,6 @@
 // classes/checkbox_item.js
+// Updated with namespaced CSS classes to avoid conflicts with other extensions
+
 import GObject  from 'gi://GObject';
 import St       from 'gi://St';
 import Gio      from 'gi://Gio';
@@ -36,7 +38,7 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
             reactive: true,
             can_focus: false,
             activate: false,
-            style_class: 'checkbox-row',
+            style_class: 'tasktimer-checkbox-row',
         });
 
         // Store parent reference
@@ -63,12 +65,13 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
         // Name
         this._name = new St.Label({ 
             text: this.task.name,
+            style_class: 'tasktimer-name',
             x_expand: true
         });
         
         // Checkboxes container
         this._checkboxContainer = new St.BoxLayout({
-            style_class: 'checkbox-container'
+            style_class: 'tasktimer-checkbox-container'
         });
         
         // Create checkboxes
@@ -78,7 +81,7 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
             const icon = isChecked ? CHECK_ICON : UNCHECK_ICON;
             
             const checkbox = new St.Button({
-                style_class: 'checkbox-button',
+                style_class: 'tasktimer-checkbox-button',
                 reactive: true,
                 can_focus: true,
                 track_hover: true,
@@ -95,28 +98,28 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
         
         // Control buttons
         this._delete = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
             child: new St.Icon({ gicon: DELETE_ICON }),
         });
         this._up = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
             child: new St.Icon({ gicon: UP_ICON }),
         });
         this._down = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
             child: new St.Icon({ gicon: DOWN_ICON }),
         });
         this._gear = new St.Button({
-            style_class: 'task-button',
+            style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
