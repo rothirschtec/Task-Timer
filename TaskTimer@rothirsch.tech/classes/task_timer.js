@@ -28,7 +28,7 @@ const CONFIG_DIR = GLib.build_filenamev([GLib.get_user_config_dir(), 'TaskTimer'
 const STATE_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.json']);
 
 // Set how many tasks to display at once
-const VISIBLE_TASKS = 12;
+const VISIBLE_TASKS = 15;
 
 export default GObject.registerClass(
 class TaskTimer extends PanelMenu.Button {
@@ -56,7 +56,7 @@ class TaskTimer extends PanelMenu.Button {
 
             /* Add class to menu for scoped CSS */
             this.menu.actor.add_style_class_name('tasktimer-popup');
-            this.menu.actor.set_width("600px");
+            this.menu.actor.set_width(500);
 
             /* Create navigation controls and task container */
             this._createTaskSectionWithNavigation();
