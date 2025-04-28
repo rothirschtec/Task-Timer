@@ -1,8 +1,5 @@
 // classes/task_timer.js
-//
-// Status‑area indicator, task list & JSON persistence – fixed for
-// event handling and settings panes on GNOME Shell 46 (GJS 1.78).
-// Updated with namespaced CSS classes to avoid conflicts with other extensions
+// Update with custom navigation controls instead of scrollbars
 
 import GObject   from 'gi://GObject';
 import St        from 'gi://St';
@@ -23,10 +20,15 @@ import * as Utils       from './utils.js';
 
 const PLUS_ICON = Gio.icon_new_for_string('list-add-symbolic');
 const HISTORY_ICON = Gio.icon_new_for_string('document-open-recent-symbolic');
+const UP_ICON = Gio.icon_new_for_string('go-up-symbolic');
+const DOWN_ICON = Gio.icon_new_for_string('go-down-symbolic');
 
 /* ~/.config/TaskTimer/state.json */
 const CONFIG_DIR = GLib.build_filenamev([GLib.get_user_config_dir(), 'TaskTimer']);
 const STATE_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.json']);
+
+// Set how many tasks to display at once
+const VISIBLE_TASKS = 12;
 
 export default GObject.registerClass(
 class TaskTimer extends PanelMenu.Button {
@@ -39,6 +41,7 @@ class TaskTimer extends PanelMenu.Button {
             this._tasks = [];
             this._taskHistory = {};
             this._lastDate = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD format
+            this._tasksOffset = 0; // Initial offset in the tasks display
             
             /* load saved tasks */
             this._loadState();
@@ -53,26 +56,17 @@ class TaskTimer extends PanelMenu.Button {
 
             /* Add class to menu for scoped CSS */
             this.menu.actor.add_style_class_name('tasktimer-popup');
+            this.menu.actor.set_width("600px");
 
-            /* popup layout */
-            this._taskSection = new PopupMenu.PopupMenuSection();
-            this.menu.addMenuItem(this._taskSection);
+            /* Create navigation controls and task container */
+            this._createTaskSectionWithNavigation();
+            
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
             this._buildNewTaskRow();
             this._buildCheckboxRow();
             
             /* recreate tasks */
-            if (Array.isArray(this._tasks)) {
-                this._tasks.forEach(t => {
-                    if (t && typeof t === 'object') {
-                        if (t.isCheckbox) {
-                            this._insertCheckboxRow(t, false);
-                        } else {
-                            this._insertTaskRow(t, false);
-                        }
-                    }
-                });
-            }
+            this._updateTaskDisplay();
             this._updateIndicator();
 
             /* autosave */
@@ -100,6 +94,130 @@ class TaskTimer extends PanelMenu.Button {
             this._tasks = [];
             this._taskHistory = {};
             this._lastDate = new Date().toISOString().split('T')[0];
+        }
+    }
+
+    /* Create task container with navigation buttons for scrolling */
+    _createTaskSectionWithNavigation() {
+        // Main container for tasks
+        const navContainer = new PopupMenu.PopupBaseMenuItem({
+            reactive: false,
+            style_class: 'tasktimer-nav-container'
+        });
+        
+        // Create a vertical layout for the entire section
+        const mainBox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'tasktimer-main-box'
+        });
+        
+        // Create top navigation button if we have more than VISIBLE_TASKS
+        this._upButton = new St.Button({
+            style_class: 'tasktimer-nav-button',
+            child: new St.Icon({ icon_name: 'go-up-symbolic' }),
+            x_expand: true,
+            can_focus: true,
+            visible: false
+        });
+        
+        // Show page indicator 
+        this._pageIndicator = new St.Label({
+            text: "1/1",
+            style_class: 'tasktimer-page-indicator',
+            x_align: Clutter.ActorAlign.CENTER,
+            x_expand: true
+        });
+        
+        // Top navigation bar
+        const topNav = new St.BoxLayout({
+            style_class: 'tasktimer-top-nav',
+            x_expand: true
+        });
+        
+        topNav.add_child(this._upButton);
+        topNav.add_child(this._pageIndicator);
+        
+        // Create the task section that will contain currently visible tasks
+        this._taskSection = new PopupMenu.PopupMenuSection();
+        
+        // Create bottom navigation button
+        this._downButton = new St.Button({
+            style_class: 'tasktimer-nav-button',
+            child: new St.Icon({ icon_name: 'go-down-symbolic' }),
+            x_expand: true,
+            can_focus: true,
+            visible: false
+        });
+        
+        // Put everything together
+        mainBox.add_child(topNav);
+        mainBox.add_child(this._taskSection.actor);
+        mainBox.add_child(this._downButton);
+        
+        navContainer.actor.add_child(mainBox);
+        this.menu.addMenuItem(navContainer);
+        
+        // Connect navigation signals
+        this._upButton.connect('clicked', () => {
+            this._scrollTasksUp();
+        });
+        
+        this._downButton.connect('clicked', () => {
+            this._scrollTasksDown();
+        });
+        
+        // Listen for task count changes
+        this.connect('destroy', () => {
+            // Clean up
+        });
+    }
+    
+    /* Scroll tasks upward (showing previous) */
+    _scrollTasksUp() {
+        if (this._tasksOffset > 0) {
+            this._tasksOffset--;
+            this._updateTaskDisplay();
+        }
+    }
+    
+    /* Scroll tasks downward (showing next) */
+    _scrollTasksDown() {
+        if (this._tasksOffset < this._tasks.length - VISIBLE_TASKS) {
+            this._tasksOffset++;
+            this._updateTaskDisplay();
+        }
+    }
+    
+    /* Update which tasks are displayed based on current offset */
+    _updateTaskDisplay() {
+        try {
+            // Clear current task display
+            this._taskSection.removeAll();
+            
+            // Determine if we need navigation
+            const totalPages = Math.ceil(this._tasks.length / VISIBLE_TASKS);
+            const currentPage = Math.floor(this._tasksOffset / VISIBLE_TASKS) + 1;
+            
+            this._pageIndicator.text = `${currentPage}/${totalPages > 0 ? totalPages : 1}`;
+            
+            // Show/hide navigation buttons based on position
+            this._upButton.visible = this._tasksOffset > 0;
+            this._downButton.visible = this._tasksOffset < this._tasks.length - VISIBLE_TASKS;
+            
+            // Only display VISIBLE_TASKS number of tasks starting from offset
+            const visibleTasks = this._tasks.slice(this._tasksOffset, this._tasksOffset + VISIBLE_TASKS);
+            
+            // Display the visible tasks
+            visibleTasks.forEach(task => {
+                if (task.isCheckbox) {
+                    this._insertCheckboxRow(task, false, false);
+                } else {
+                    this._insertTaskRow(task, false, false);
+                }
+            });
+            
+        } catch (e) {
+            log(`TaskTimer: Error updating task display: ${e.message}`);
         }
     }
 
@@ -259,8 +377,16 @@ class TaskTimer extends PanelMenu.Button {
                 description: _('Enter description here!'),
                 createdOn: this._lastDate // Store creation date
             };
+            
+            // Add to the beginning of the tasks array
             this._tasks.unshift(task);
-            this._insertTaskRow(task, true);
+            
+            // Update display and save changes
+            this._tasksOffset = 0; // Reset to the top to show the new task
+            this._updateTaskDisplay();
+            this._updateIndicator();
+            this._saveState();
+            
         } catch (e) {
             log(`TaskTimer: Error in _onAdd: ${e.message}`);
         }
@@ -286,8 +412,15 @@ class TaskTimer extends PanelMenu.Button {
                 description: _('Enter description here!'),
                 createdOn: this._lastDate // Store creation date
             };
+            
+            // Add to the beginning of the tasks array
             this._tasks.unshift(task);
-            this._insertCheckboxRow(task, true);
+            
+            // Update display and save changes
+            this._tasksOffset = 0; // Reset to the top to show the new checkbox
+            this._updateTaskDisplay();
+            this._saveState();
+            
         } catch (e) {
             log(`TaskTimer: Error in _onAddCheckbox: ${e.message}`);
         }
@@ -314,7 +447,7 @@ class TaskTimer extends PanelMenu.Button {
     }
 
     /* ─────────── task rows ─────────── */
-    _insertTaskRow(task, save) {
+    _insertTaskRow(task, save, updateDisplay = true) {
         try {
             // Pass this (the TaskTimer) as the parent
             const row = new TaskItem(task, this);
@@ -345,14 +478,22 @@ class TaskTimer extends PanelMenu.Button {
                 this._closeSettings(row);
             });
 
-            this._taskSection.addMenuItem(row, 0);
-            if (save) { this._updateIndicator(); this._saveState(); }
+            this._taskSection.addMenuItem(row);
+            
+            if (save) { 
+                this._updateIndicator(); 
+                this._saveState(); 
+                
+                if (updateDisplay) {
+                    this._updateTaskDisplay();
+                }
+            }
         } catch (e) {
             log(`TaskTimer: Error in _insertTaskRow: ${e.message}`);
         }
     }
 
-    _insertCheckboxRow(task, save) {
+    _insertCheckboxRow(task, save, updateDisplay = true) {
         try {
             const row = new CheckboxItem(task, this);
 
@@ -379,8 +520,15 @@ class TaskTimer extends PanelMenu.Button {
                 this._closeSettings(row);
             });
 
-            this._taskSection.addMenuItem(row, 0);
-            if (save) { this._saveState(); }
+            this._taskSection.addMenuItem(row);
+            
+            if (save) { 
+                this._saveState(); 
+                
+                if (updateDisplay) {
+                    this._updateTaskDisplay();
+                }
+            }
         } catch (e) {
             log(`TaskTimer: Error in _insertCheckboxRow: ${e.message}`);
         }
@@ -390,7 +538,20 @@ class TaskTimer extends PanelMenu.Button {
         try {
             if (row._settingsRow) row._settingsRow.destroy();
             row.destroy();
-            this._tasks = this._tasks.filter(t => t !== row.task);
+            
+            // Find and remove task
+            const index = this._tasks.indexOf(row.task);
+            if (index !== -1) {
+                this._tasks.splice(index, 1);
+            }
+            
+            // Adjust offset if necessary to prevent empty display
+            if (this._tasksOffset >= this._tasks.length) {
+                this._tasksOffset = Math.max(0, this._tasks.length - VISIBLE_TASKS);
+            }
+            
+            // Update display
+            this._updateTaskDisplay();
             this._updateIndicator();
             this._saveState();
         } catch (e) {
@@ -400,14 +561,31 @@ class TaskTimer extends PanelMenu.Button {
 
     _moveRow(row, dir) {
         try {
-            const items = this._taskSection._getMenuItems();
-            const idx   = items.indexOf(row), tgt = idx + dir;
-            if (tgt < 0 || tgt >= items.length) return;
-            this._taskSection.moveMenuItem(row, tgt);
-
-            /* reorder backing array */
-            const [t] = this._tasks.splice(idx, 1);
-            this._tasks.splice(tgt, 0, t);
+            // Find the index of the task in the array
+            const taskIndex = this._tasks.indexOf(row.task);
+            if (taskIndex === -1) return;
+            
+            // Calculate the target index
+            const targetIndex = taskIndex + dir;
+            
+            // Check if target is valid
+            if (targetIndex < 0 || targetIndex >= this._tasks.length) return;
+            
+            // Move the task in the array
+            const [task] = this._tasks.splice(taskIndex, 1);
+            this._tasks.splice(targetIndex, 0, task);
+            
+            // Adjust offset if necessary
+            if (this._tasksOffset > 0 && taskIndex < this._tasksOffset && targetIndex >= this._tasksOffset) {
+                // Task moved out of view downward
+                this._tasksOffset++;
+            } else if (this._tasksOffset > 0 && taskIndex >= this._tasksOffset && targetIndex < this._tasksOffset) {
+                // Task moved out of view upward
+                this._tasksOffset--;
+            }
+            
+            // Update display and save
+            this._updateTaskDisplay();
             this._saveState();
         } catch (e) {
             log(`TaskTimer: Error in _moveRow: ${e.message}`);
@@ -435,9 +613,12 @@ class TaskTimer extends PanelMenu.Button {
                 row._refreshBg(); // Make sure to update bg color if changed
                 row._updateTimeLabel(); // Add this line to update the time display
             });
+            
             const idx = this._taskSection._getMenuItems().indexOf(row);
-            this._taskSection.addMenuItem(settings, idx + 1);
-            row._settingsRow = settings;
+            if (idx !== -1) {
+                this._taskSection.addMenuItem(settings, idx + 1);
+                row._settingsRow = settings;
+            }
         } catch (e) {
             log(`TaskTimer: Error in _openSettings: ${e.message}`);
         }
@@ -464,8 +645,10 @@ class TaskTimer extends PanelMenu.Button {
             });
 
             const idx = this._taskSection._getMenuItems().indexOf(row);
-            this._taskSection.addMenuItem(settings, idx + 1);
-            row._settingsRow = settings;
+            if (idx !== -1) {
+                this._taskSection.addMenuItem(settings, idx + 1);
+                row._settingsRow = settings;
+            }
         } catch (e) {
             log(`TaskTimer: Error in _openCheckboxSettings: ${e.message}`);
         }

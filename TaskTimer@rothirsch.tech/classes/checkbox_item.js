@@ -1,5 +1,5 @@
 // classes/checkbox_item.js
-// Updated with namespaced CSS classes to avoid conflicts with other extensions
+// Updated with namespaced CSS classes and more compact layout
 
 import GObject  from 'gi://GObject';
 import St       from 'gi://St';
@@ -62,19 +62,22 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
     }
 
     _buildLayout() {
-        // Name
+        // Name with truncation for long names
         this._name = new St.Label({ 
             text: this.task.name,
             style_class: 'tasktimer-name',
-            x_expand: true
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+            style: 'max-width: 200px; text-overflow: ellipsis;'
         });
         
-        // Checkboxes container
+        // Checkboxes container with more compact spacing
         this._checkboxContainer = new St.BoxLayout({
-            style_class: 'tasktimer-checkbox-container'
+            style_class: 'tasktimer-checkbox-container',
+            style: 'spacing: 2px;'
         });
         
-        // Create checkboxes
+        // Create smaller checkboxes
         this._checkboxes = [];
         for (let i = 0; i < this.task.checkCount; i++) {
             const isChecked = this.task.checked && this.task.checked[i];
@@ -85,7 +88,10 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
                 reactive: true,
                 can_focus: true,
                 track_hover: true,
-                child: new St.Icon({ gicon: icon }),
+                child: new St.Icon({ 
+                    gicon: icon,
+                    icon_size: 16 // Smaller icons
+                }),
             });
             
             // Store checkbox state
@@ -96,37 +102,52 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
             this._checkboxContainer.add_child(checkbox);
         }
         
-        // Control buttons
+        // Control buttons with smaller icons
         this._delete = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: DELETE_ICON }),
+            child: new St.Icon({ 
+                gicon: DELETE_ICON,
+                icon_size: 16 // Smaller icons
+            }),
         });
         this._up = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: UP_ICON }),
+            child: new St.Icon({ 
+                gicon: UP_ICON,
+                icon_size: 16 // Smaller icons
+            }),
         });
         this._down = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: DOWN_ICON }),
+            child: new St.Icon({ 
+                gicon: DOWN_ICON,
+                icon_size: 16 // Smaller icons
+            }),
         });
         this._gear = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: GEAR_ICON }),
+            child: new St.Icon({ 
+                gicon: GEAR_ICON,
+                icon_size: 16 // Smaller icons
+            }),
         });
         
-        const controlButtons = new St.BoxLayout();
+        // More compact control buttons group
+        const controlButtons = new St.BoxLayout({
+            style: 'spacing: 2px;'
+        });
         controlButtons.add_child(this._delete);
         controlButtons.add_child(this._up);
         controlButtons.add_child(this._down);

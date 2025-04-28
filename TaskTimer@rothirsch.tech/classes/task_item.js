@@ -1,6 +1,6 @@
 // classes/task_item.js
 // Compatible with GNOME Shell 46 (GJS 1.78)
-// Updated with namespaced CSS classes and overflow indicator
+// Updated with namespaced CSS classes, overflow indicator, and more compact layout
 
 import GObject  from 'gi://GObject';
 import St       from 'gi://St';
@@ -79,75 +79,108 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
     }
 
     _buildLayout() {
+        // Create a more efficient layout with better spacing
+        
         // Left side - Play/Pause
         this._play = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: PLAY_ICON }),
+            child: new St.Icon({ 
+                gicon: PLAY_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
         });
         this._pause = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: PAUSE_ICON }),
+            child: new St.Icon({ 
+                gicon: PAUSE_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
         });
         this._pause.hide();
         
-        const left = new St.BoxLayout();
+        const left = new St.BoxLayout({
+            style: 'margin-right: 4px;'
+        });
         left.add_child(this._play);
         left.add_child(this._pause);
         
         // Center - Name & Time
+        // Truncate long task names with ellipsis
         this._name = new St.Label({ 
             text: this.task.name,
             style_class: 'tasktimer-name',
-            x_expand: true
-        });
-        this._timeLbl = new St.Label({
-            style_class: 'tasktimer-timer-display'
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+            style: 'max-width: 200px; text-overflow: ellipsis;'
         });
         
-        // Right side - Controls
+        this._timeLbl = new St.Label({
+            style_class: 'tasktimer-timer-display',
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        
+        // Right side - Controls in a more compact layout
         this._restart = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: RESTART_ICON }),
+            child: new St.Icon({ 
+                gicon: RESTART_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
         });
         this._delete = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: DELETE_ICON }),
+            child: new St.Icon({ 
+                gicon: DELETE_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
         });
         this._up = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: UP_ICON }),
+            child: new St.Icon({ 
+                gicon: UP_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
         });
         this._down = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: DOWN_ICON }),
+            child: new St.Icon({ 
+                gicon: DOWN_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
         });
         this._gear = new St.Button({
             style_class: 'tasktimer-button',
             reactive: true,
             can_focus: true,
             track_hover: true,
-            child: new St.Icon({ gicon: GEAR_ICON }),
+            child: new St.Icon({ 
+                gicon: GEAR_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
         });
         
-        const right = new St.BoxLayout();
+        // Use a more compact button layout with less space between items
+        const right = new St.BoxLayout({
+            style: 'spacing: 2px; margin-left: 4px;'
+        });
         right.add_child(this._restart);
         right.add_child(this._delete);
         right.add_child(this._up);
