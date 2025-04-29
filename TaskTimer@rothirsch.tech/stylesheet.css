@@ -173,3 +173,29 @@ i/* TaskTimer Stylesheet - PROPERLY SCOPED to only affect this extension */
   font-weight: bold !important;
   margin: 0 10px !important;
 }
+
+/* Style for the time input field */
+.tasktimer-popup .tasktimer-time-entry {
+  min-width: 70px !important;
+  width: 70px !important;
+  height: 30px !important;
+  padding: 2px 6px !important;
+  margin-left: 8px !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
+  border-radius: 4px !important;
+  font-size: 15px !important;
+  text-align: center !important;
+}
+
+/* Container for time input elements */
+.tasktimer-popup .tasktimer-time-input-box {
+  spacing: 6px !important;
+  min-height: 30px !important;
+}
+
+/* Style the slider and time input container */
+.tasktimer-popup .tasktimer-new-task-slider {
+  width: 160px !important;
+  margin: 0 6px !important;
+}

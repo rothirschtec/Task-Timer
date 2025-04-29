@@ -246,7 +246,14 @@ class TaskTimer extends PanelMenu.Button {
             // Make sure slider has reasonable width and styling
             this._slider = new Slider.Slider(0);
             this._slider.actor.add_style_class_name('tasktimer-new-task-slider');
-            this._slider.actor.set_width(200);
+            
+            // Add time input text field
+            this._timeEntry = new St.Entry({
+                hint_text: _('mm:ss'),
+                style_class: 'tasktimer-time-entry',
+                can_focus: true,
+                width: 80
+            });
             
             // Ensure the add button is visible and styled properly
             this._addBtn = new St.Button({ 
@@ -256,8 +263,18 @@ class TaskTimer extends PanelMenu.Button {
 
             // Properly add all elements to the layout
             box.add_child(this._entry);
-            box.add_child(new St.Label({ text: _('  min ') }));
-            box.add_child(this._slider.actor);
+            
+            // Create a container for time input elements
+            const timeBox = new St.BoxLayout({
+                style_class: 'tasktimer-time-input-box',
+                y_align: Clutter.ActorAlign.CENTER
+            });
+            
+            timeBox.add_child(new St.Label({ text: _('Time:') }));
+            timeBox.add_child(this._slider.actor);
+            timeBox.add_child(this._timeEntry);
+            
+            box.add_child(timeBox);
             box.add_child(this._addBtn);
             
             // Make sure the box is properly added to the menu
@@ -265,16 +282,67 @@ class TaskTimer extends PanelMenu.Button {
 
             /* signals */
             this._addBtn.connect('clicked', () => this._onAdd());
+            
+            // Connect the slider to update the text field
             this._slider.connect('notify::value', () => {
                 const m = Math.round(this._slider.value * 1440);
                 this._newRow.label.text = m ? _(`＋ New task… (${m} min)`)
                                             : _('＋ New task…');
+                
+                // Update time entry text to match slider
+                if (!this._timeEntry.has_key_focus()) {
+                    const minutes = Math.floor(m);
+                    const seconds = 0;
+                    this._timeEntry.set_text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+                }
+            });
+            
+            // Connect time entry to update slider when text changes
+            this._timeEntry.clutter_text.connect('text-changed', () => {
+                const text = this._timeEntry.get_text();
+                const seconds = Utils.parseTimeInput(text);
+                
+                if (seconds !== null) {
+                    // Convert to slider value (between 0-1)
+                    const minutes = seconds / 60;
+                    const maxMinutes = 1440; // 24 hours
+                    const newValue = Math.min(1, minutes / maxMinutes);
+                    
+                    // Only update if significantly different to avoid loops
+                    if (Math.abs(this._slider.value - newValue) > 0.001) {
+                        this._slider.value = newValue;
+                        const displayMinutes = Math.round(minutes);
+                        this._newRow.label.text = displayMinutes ? 
+                            _(`＋ New task… (${displayMinutes} min)`) : 
+                            _('＋ New task…');
+                    }
+                }
+            });
+            
+            // Handle return/enter key press
+            this._timeEntry.clutter_text.connect('key-press-event', (_o, e) => {
+                const symbol = e.get_key_symbol();
+                if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter) {
+                    this._onAdd();
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            });
+            
+            // Handle return/enter key press in task name field
+            this._entry.clutter_text.connect('key-press-event', (_o, e) => {
+                const symbol = e.get_key_symbol();
+                if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter) {
+                    this._onAdd();
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
             });
         } catch (e) {
             log(`TaskTimer: Error in _buildNewTaskRow: ${e.message}`);
         }
     }
-    
+
     /* ─────────── "＋ New checklist…" ─────────── */
     _buildCheckboxRow() {
         try {
@@ -338,14 +406,30 @@ class TaskTimer extends PanelMenu.Button {
     _onAdd() {
         try {
             const name = this._entry.get_text().trim();
-            const mins = Math.round(this._slider.value * 1440);
+            
+            // Get time from time entry if it has text, otherwise use slider
+            let seconds;
+            const timeText = this._timeEntry.get_text().trim();
+            if (timeText) {
+                seconds = Utils.parseTimeInput(timeText);
+                if (seconds === null) {
+                    // If time entry has invalid format, use slider
+                    seconds = Math.round(this._slider.value * 1440) * 60;
+                }
+            } else {
+                // Use slider value
+                seconds = Math.round(this._slider.value * 1440) * 60;
+            }
+            
+            const mins = Math.round(seconds / 60);
             if (!name || !mins) return this._flashRow();
-
+    
             /* reset UI */
             this._entry.set_text('');
-            this._slider.value   = 0;
+            this._slider.value = 0;
+            this._timeEntry.set_text('');
             this._newRow.label.text = _('＋ New task…');
-
+    
             // Get current day for weekdays initialization
             const today = new Date();
             const dayIndex = today.getDay();
@@ -364,11 +448,11 @@ class TaskTimer extends PanelMenu.Button {
             };
             
             // Set planned time for today
-            weekdays[dayKey] = `0:00/${Utils.convertTime(mins * 60)}/0:00`;
-
+            weekdays[dayKey] = `0:00/${Utils.convertTime(seconds)}/0:00`;
+    
             const task = {
                 name, 
-                planned: mins * 60, 
+                planned: seconds, 
                 currTime: 0, 
                 lastStop: 0,
                 color: Utils.generateColor(), 
