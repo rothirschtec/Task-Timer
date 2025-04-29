@@ -10,20 +10,20 @@ import * as Utils from './utils.js';
 const KEY_RETURN = 65293;
 const KEY_ENTER  = 65421;
 
-// Predefined colors (same as in task_settings.js)
+// WCAG 2.0 AA compliant colors (same as in task_settings.js)
 const COLORS = [
-    '#4CAF50', // Green
-    '#2196F3', // Blue
-    '#9C27B0', // Purple
-    '#F44336', // Red
-    '#FF9800', // Orange
-    '#607D8B', // Blue Gray
-    '#00BCD4', // Cyan
-    '#8BC34A', // Light Green
-    '#FFC107', // Amber
-    '#E91E63', // Pink
-    '#795548', // Brown
+    '#2272C8', // Blue
+    '#3C9D4E', // Green
+    '#6D4C9F', // Purple
+    '#C42B1C', // Red
+    '#7D5700', // Brown/Orange
+    '#515C6B', // Blue Gray
+    '#0797A8', // Teal
+    '#71B238', // Light Green
+    '#CB7300', // Orange
+    '#B9227D', // Pink
 ];
+
 
 /* Simple settings class for checkbox items */
 export default class CheckboxSettings extends PopupMenu.PopupMenuSection {
@@ -101,7 +101,7 @@ export default class CheckboxSettings extends PopupMenu.PopupMenuSection {
         
         COLORS.forEach(color => {
             const colorBtn = new St.Button({
-                style: `background-color: ${color}; width: 24px; height: 24px; margin: 2px; border-radius: 12px;`,
+                style: `background-color: ${color}; width: 36px; height: 36px; margin: 4px; border-radius: 18px;`,
                 reactive: true,
                 can_focus: true,
             });
@@ -112,7 +112,7 @@ export default class CheckboxSettings extends PopupMenu.PopupMenuSection {
             });
             colorGrid.add_child(colorBtn);
         });
-        
+
         // Random color button
         const randomBtn = new St.Button({
             label: _('Random'),
