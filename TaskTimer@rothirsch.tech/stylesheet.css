@@ -7,8 +7,8 @@
 
 /* Ensure popup content sizing only affects our extension */
 .tasktimer-popup .popup-menu-content {
-  width: 600px !important;
-  min-width: 600px !important;
+  width: 480px !important;
+  min-width: 480px !important;
   padding: 8px !important;
 }
 
@@ -43,10 +43,10 @@
   margin: 2px 0 !important;
 }
 
-/* Task rows */
+/* Task rows - ONLY FIX THE WIDTH */
 .tasktimer-popup .tasktimer-row,
 .tasktimer-popup .tasktimer-checkbox-row {
-  width: 100% !important;
+  width: 464px !important; /* 480px - 16px padding */
   margin: 4px 0 !important;
   padding: 6px 8px !important;
   border-radius: 8px !important;
@@ -56,7 +56,7 @@
 /* FIRST ITEM FIX: Ensure the first item has the same size as others */
 .tasktimer-popup .popup-menu-section .tasktimer-row:first-child,
 .tasktimer-popup .popup-menu-section .tasktimer-checkbox-row:first-child {
-  width: 100% !important;
+  width: 464px !important; /* Match the width to other rows */
   min-width: unset !important;
   max-width: unset !important;
   margin: 4px 0 !important;
