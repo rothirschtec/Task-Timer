@@ -56,7 +56,7 @@ class TaskTimer extends PanelMenu.Button {
 
             /* Add class to menu for scoped CSS */
             this.menu.actor.add_style_class_name('tasktimer-popup');
-            this.menu.actor.set_width(500);
+            this.menu.actor.set_width("600px");
 
             /* Create navigation controls and task container */
             this._createTaskSectionWithNavigation();
