@@ -24,7 +24,6 @@ const COLORS = [
     '#B9227D', // Pink
 ];
 
-
 /* Simple settings class for checkbox items */
 export default class CheckboxSettings extends PopupMenu.PopupMenuSection {
 
@@ -112,7 +111,7 @@ export default class CheckboxSettings extends PopupMenu.PopupMenuSection {
             });
             colorGrid.add_child(colorBtn);
         });
-
+        
         // Random color button
         const randomBtn = new St.Button({
             label: _('Random'),

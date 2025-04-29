@@ -1,4 +1,4 @@
-i/* TaskTimer Stylesheet - PROPERLY SCOPED to only affect this extension */
+/* TaskTimer Stylesheet - PROPERLY SCOPED to only affect this extension */
 
 /* Define a namespace prefix for all selectors */
 .tasktimer-popup {
@@ -143,7 +143,8 @@ i/* TaskTimer Stylesheet - PROPERLY SCOPED to only affect this extension */
 /* New task sliders */
 .tasktimer-popup .tasktimer-new-task-slider {
   height: 6px !important;
-  width: 200px !important;
+  width: 160px !important;
+  margin: 0 6px !important;
 }
 
 /* Specifically ensure checkbox rows have left-aligned text */
@@ -158,20 +159,6 @@ i/* TaskTimer Stylesheet - PROPERLY SCOPED to only affect this extension */
 .tasktimer-popup .settings-box .description-btn,
 .tasktimer-popup .settings-box .description-label {
   font-size: 15px !important;
-}
-
-/* The animation is automatically scoped */
-@keyframes tasktimer-overtime-pulse {
-  0% { border-color: #f55; }
-  50% { border-color: #ff8080; }
-  100% { border-color: #f55; }
-}
-
-/* Time label in panel */
-.tasktimer-time-label {
-  font-size: 15px !important;
-  font-weight: bold !important;
-  margin: 0 10px !important;
 }
 
 /* Style for the time input field */
@@ -194,8 +181,16 @@ i/* TaskTimer Stylesheet - PROPERLY SCOPED to only affect this extension */
   min-height: 30px !important;
 }
 
-/* Style the slider and time input container */
-.tasktimer-popup .tasktimer-new-task-slider {
-  width: 160px !important;
-  margin: 0 6px !important;
+/* The animation is automatically scoped */
+@keyframes tasktimer-overtime-pulse {
+  0% { border-color: #f55; }
+  50% { border-color: #ff8080; }
+  100% { border-color: #f55; }
+}
+
+/* Time label in panel */
+.tasktimer-time-label {
+  font-size: 15px !important;
+  font-weight: bold !important;
+  margin: 0 10px !important;
 }

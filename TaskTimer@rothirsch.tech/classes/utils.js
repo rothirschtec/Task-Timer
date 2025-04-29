@@ -1,8 +1,27 @@
 /* Utility helpers — ES module */
 
+// WCAG 2.0 AA compliant color palette
+const WCAG_COLORS = [
+    '#2272C8', // Blue
+    '#3C9D4E', // Green
+    '#6D4C9F', // Purple
+    '#C42B1C', // Red
+    '#7D5700', // Brown/Orange
+    '#515C6B', // Blue Gray
+    '#0797A8', // Teal
+    '#71B238', // Light Green
+    '#CB7300', // Orange
+    '#B9227D', // Pink
+];
+
 export function generateColor() {
-    const h = () => Math.floor(Math.random() * 255).toString(16).padStart(2, '0');
-    return `#${h()}${h()}${h()}`;
+    // Use the WCAG 2.0 AA compliant colors
+    const randomIndex = Math.floor(Math.random() * WCAG_COLORS.length);
+    return WCAG_COLORS[randomIndex];
+    
+    // The original random color generation is commented out for reference
+    // const h = () => Math.floor(Math.random() * 255).toString(16).padStart(2, '0');
+    // return `#${h()}${h()}${h()}`;
 }
 export const generate_color = generateColor;          // legacy alias
 
