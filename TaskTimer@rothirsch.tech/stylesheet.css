@@ -1,488 +1,71 @@
-/* TaskTimer Stylesheet - Refactored and Optimized */
+/* TaskTimer Stylesheet - PROPERLY SCOPED to only affect this extension */
 
-/*********************
- * GENERAL STRUCTURE *
- *********************/
+/* Define a namespace prefix for all selectors */
+.tasktimer-popup {
+  /* This targets only our extension's popup */
+}
 
-/* Main popup styling */
+/* Ensure popup content sizing only affects our extension */
 .tasktimer-popup .popup-menu-content {
   width: 600px !important;
   min-width: 600px !important;
   padding: 8px !important;
 }
 
-/* Pagination indicator (1/2) */
-.popup-menu-item:first-child {
+/* Ensure page indicator only affects our extension */
+.tasktimer-popup .popup-menu-item:first-child {
   text-align: center !important;
   padding: 2px !important;
   font-size: 12px !important;
   color: rgba(255, 255, 255, 0.7) !important;
 }
 
-/* Regular menu items */
-.popup-menu-item {
-  padding: 6px 8px !important;
-}
-
-/* Time indicator in top panel */
-.tasktimer-time-label {
-  font-size: 14px;
-  font-weight: bold;
-  margin: 0 10px;
-}
-
-/**************
- * TASK ITEMS *
- **************/
-
-/* Base styles for task and checkbox rows */
-.tasktimer-row, 
-.tasktimer-checkbox-row {
-  width: calc(100% - 16px) !important;
-  margin: 3px 8px !important;
-  padding: 6px 10px !important;
-  border-radius: 8px !important;
-}
-
-/* Overtime animation for task rows */
-.tasktimer-row.overtime {
-  border: 2px solid #f55;
-  animation: tasktimer-overtime-pulse 2s infinite;
-}
-
-/* Task name styling */
-.tasktimer-name {
-  font-size: 14px;
-  font-weight: 600;
-  margin-left: 6px !important;
-  margin-right: auto !important;
-  padding-left: 4px !important;
-  min-width: 120px !important;
-}
-
-/* Time display in task rows */
-.tasktimer-timer-display {
-  font-size: 14px;
-  font-weight: bold;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-  margin-left: auto !important;
-  margin-right: 8px !important;
-  min-width: 110px !important;
-  text-align: right !important;
-}
-
-/* Overtime time display */
-.tasktimer-timer-display.overtime {
-  color: #f55;
-  font-weight: bold;
-}
-
-/***************
- * CHECKBOXES *
- ***************/
-
-/* Checkbox container */
-.tasktimer-checkbox-container {
-  margin-left: auto !important;
-  margin-right: 8px !important;
-  spacing: 4px !important;
-}
-
-/* Individual checkbox buttons */
-.tasktimer-checkbox-button {
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-  margin: 0 2px;
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.tasktimer-checkbox-button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.tasktimer-checkbox-button:active {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-/*******************
- * CONTROL BUTTONS *
- *******************/
-
-/* All buttons (play, pause, settings, etc.) */
-.tasktimer-button {
-  border-radius: 16px !important;
-  min-width: 28px !important;
-  min-height: 28px !important;
-  padding: 0 !important;
-  margin: 0 4px !important;
-  background-color: transparent;
-  border: none;
-}
-
-.tasktimer-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.tasktimer-button:active {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-/* Button icons */
-.tasktimer-button StIcon {
-  icon-size: 14px;
-}
-
-/* Button container alignment */
-.tasktimer-row > StBoxLayout:last-child,
-.tasktimer-checkbox-row > StBoxLayout:last-child {
-  margin-left: auto !important;
-  spacing: 2px !important;
-}
-
-/*********************
- * PAGINATION SYSTEM *
- *********************/
-
-/* Navigation container */
-.tasktimer-nav-container {
-  padding: 0 !important;
-  margin: 0 !important;
-  background-color: transparent !important;
-}
-
-/* Main container box */
-.tasktimer-main-box {
-  spacing: 0;
-  padding: 0;
-  margin: 0;
-}
-
-/* Top navigation area */
-.tasktimer-top-nav {
-  min-height: 20px;
-  padding: 0;
-  margin: 0;
-}
-
-/* Navigation buttons (up/down) */
+/* Navigation buttons */
 .tasktimer-nav-button {
-  width: 100%;
-  height: 20px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  margin: 1px 0;
+  width: 100% !important;
+  height: 20px !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 4px !important;
+  margin: 1px 0 !important;
 }
 
 .tasktimer-nav-button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.2) !important;
 }
 
-.tasktimer-nav-button:active {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-/* Page indicator (1/2) */
+/* Page indicator */
 .tasktimer-page-indicator {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
-  padding: 1px 8px;
-  margin: 2px 0;
+  font-size: 11px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  background-color: rgba(0, 0, 0, 0.2) !important;
+  border-radius: 10px !important;
+  padding: 1px 8px !important;
+  margin: 2px 0 !important;
 }
 
-/***************
- * NEW TASK UI *
- ***************/
-
-/* New task and new checklist buttons */
-.popup-menu-item:nth-last-child(2),
-.popup-menu-item:last-child {
-  padding: 8px 16px !important;
-}
-
-/* New task container */
-.tasktimer-new-task-box {
-  padding: 12px;
-  border-radius: 8px;
-  background-color: rgba(255, 255, 255, 0.05);
-  margin: 6px;
-}
-
-/* New task text input */
-.tasktimer-new-task-entry {
-  border-radius: 6px;
-  padding: 8px;
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  border: none;
-  margin-right: 10px;
-  width: 180px;
-  min-height: 24px;
-}
-
-/* Slider for minutes/boxes */
-.tasktimer-new-task-slider {
-  height: 6px;
-  border-radius: 3px;
-  background-color: rgba(255, 255, 255, 0.15);
-  width: 200px;
-}
-
-/* New task combobox */
-.tasktimer-combobox-item {
-  padding: 8px;
-  spacing: 8px;
-}
-
-.tasktimer-combobox-item .popup-menu-item {
-  margin: 0 4px;
-}
-
-.tasktimer-combobox-item .popup-menu-item:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Text entries in combo box */
-.tasktimer-combobox-item St.Entry {
-  min-width: 150px;
-  background-color: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  padding: 4px 8px;
-  color: white;
-}
-
-/*****************
- * SETTINGS PANE *
- *****************/
-
-/* Settings container */
-.tasktimer-settings-box {
-  padding: 12px;
-  margin: 8px;
-  min-height: 50px;
-  display: flex;
-  align-items: center;
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  max-width: 650px;
-  width: auto;
-}
-
-/* Setting label */
-.tasktimer-settings-label {
-  font-size: 16px;
-  color: #b0b0b0;
-  min-width: 120px;
-}
-
-/* Settings sliders */
-.tasktimer-time-slider {
-  height: 8px;
-  border-radius: 4px;
-  background-color: rgba(255, 255, 255, 0.15);
-  margin: 0 15px;
-  min-width: 180px;
-  width: 200px;
-}
-
-.tasktimer-time-slider .slider-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 9px;
-  background-color: white;
-}
-
-/* Time input field */
-.tasktimer-time-entry {
-  width: 80px !important;
-  height: 36px;
-  margin-left: 15px;
-  border-radius: 6px;
-  background-color: rgba(0, 0, 0, 0.2);
-  color: #ffffff;
-  text-align: center;
-  font-size: 16px;
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  font-weight: bold;
-}
-
-.tasktimer-time-entry:focus {
-  background-color: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-/* Minute adjustment buttons */
-.tasktimer-time-button {
-  width: 30px;
-  height: 30px;
-  border-radius: 15px;
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-  margin: 0 5px;
-}
-
-.tasktimer-time-button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.tasktimer-time-button:active {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-/* Task description */
-.tasktimer-description-btn, 
-.tasktimer-description-label {
-  border-radius: 6px;
-  padding: 8px;
-  background-color: rgba(255, 255, 255, 0.05);
-  margin: 6px 0;
-  font-size: 14px;
-  min-height: 40px;
-}
-
-.tasktimer-description-label:focus {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Weekly calendar */
-.tasktimer-weekday-label {
-  font-size: 12px;
-  font-weight: bold;
-  text-align: center;
-  color: #b0b0b0;
-  padding-bottom: 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.tasktimer-weekday-times {
-  font-size: 11px;
-  text-align: center;
-  padding: 4px 0;
-}
-
-.tasktimer-weekday-header {
-  font-size: 10px;
-  width: 40px;
-  color: #b0b0b0;
-}
-
-/* Color picker */
-.tasktimer-color-grid {
-  margin: 0 10px;
-  display: flex;
-  flex-wrap: wrap;
-}
-
-.tasktimer-random-color-btn {
-  border-radius: 6px;
-  padding: 8px 12px;
-  background-color: rgba(255, 255, 255, 0.1);
-  margin-left: 8px;
-  height: 36px;
-  font-size: 14px;
-}
-
-.tasktimer-random-color-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-/********************
- * SCROLLBAR STYLES *
- ********************/
-
-/* General scrollbar styling */
-StScrollBar {
-  width: 14px !important;
-  min-width: 14px !important;
-}
-
-StScrollBar StBin#trough {
-  background-color: rgba(0, 0, 0, 0.3) !important;
-  border-radius: 8px !important;
-  margin: 2px !important;
-}
-
-StScrollBar StBin#vhandle {
-  background-color: rgba(255, 255, 255, 0.5) !important;
-  border-radius: 8px !important;
-  border: 1px solid white !important;
-}
-
-StScrollBar StBin#vhandle:hover {
-  background-color: white !important;
-}
-
-/* Scroll indicator */
-.tasktimer-scrollbar-indicator {
-  height: 4px;
-  background-color: rgba(255, 255, 255, 0.5);
-  border-radius: 2px;
-  margin: 2px 0;
-}
-
-/* Scrollable task container */
-.tasktimer-task-container {
-  padding: 0 !important;
-  margin: 0 !important;
-  background-color: transparent !important;
-}
-
-.tasktimer-task-container.popup-menu-item {
-  padding: 0 !important;
-}
-
-.tasktimer-task-container > * {
-  max-height: 400px !important;
-  overflow-y: auto !important;
-  padding: 4px !important;
-}
-
-/*************
- * ANIMATIONS *
- *************/
-
-/* Overtime pulse animation */
-@keyframes tasktimer-overtime-pulse {
-  0% { border-color: #f55; }
-  50% { border-color: #ff8080; }
-  100% { border-color: #f55; }
-}
-
-/* Set popup width without causing overflow */
-.tasktimer-popup .popup-menu-content {
-  width: 600px !important;
-  min-width: 600px !important;
-  padding: 8px !important;
-  box-sizing: border-box !important;
-}
-
-/* Task rows - fix the width to avoid overflow */
-.tasktimer-row, 
-.tasktimer-checkbox-row {
-  width: 100% !important; /* Use full container width */
-  margin: 4px 0 !important; /* Vertical margin only */
-  padding: 8px !important;
-  border-radius: 8px !important;
-  box-sizing: border-box !important;
-}
-
-/* Fix internal layout - don't use fixed pixel widths for internal containers */
-.tasktimer-row > .popup-menu-item-label,
-.tasktimer-checkbox-row > .popup-menu-item-label {
+/* Task rows */
+.tasktimer-popup .tasktimer-row,
+.tasktimer-popup .tasktimer-checkbox-row {
   width: 100% !important;
+  margin: 4px 0 !important;
+  padding: 6px 8px !important;
+  border-radius: 8px !important;
   box-sizing: border-box !important;
-  padding: 0 !important; /* Remove padding that might cause overflow */
 }
 
-/* Ensure task name has proper flex priority */
-.tasktimer-name {
-  flex: 1 !important; /* This allows the name to take available space */
+/* FIRST ITEM FIX: Ensure the first item has the same size as others */
+.tasktimer-popup .popup-menu-section .tasktimer-row:first-child,
+.tasktimer-popup .popup-menu-section .tasktimer-checkbox-row:first-child {
+  width: 100% !important;
+  min-width: unset !important;
+  max-width: unset !important;
+  margin: 4px 0 !important;
+  padding: 6px 8px !important;
+}
+
+/* Task names within our extension */
+.tasktimer-popup .tasktimer-name {
+  flex: 1 !important;
   padding-left: 4px !important;
   padding-right: 4px !important;
   text-overflow: ellipsis !important;
@@ -490,71 +73,85 @@ StScrollBar StBin#vhandle:hover {
   white-space: nowrap !important;
 }
 
-/* Make timer display not too wide */
-.tasktimer-timer-display {
-  width: auto !important; /* Let content determine width */
-  min-width: 90px !important; /* Minimum width for timer */
+/* Timer display within our extension */
+.tasktimer-popup .tasktimer-timer-display {
+  width: auto !important;
+  min-width: 90px !important;
   text-align: right !important;
   padding-left: 4px !important;
   padding-right: 4px !important;
+  font-weight: bold !important;
 }
 
-/* Fix control buttons container */
-.tasktimer-row > StBoxLayout:last-child,
-.tasktimer-checkbox-row > StBoxLayout:last-child {
-  margin-left: 4px !important;
-  margin-right: 0 !important;
-  padding-right: 0 !important;
+/* Overtime timer */
+.tasktimer-popup .tasktimer-timer-display.overtime {
+  color: #f55 !important;
+  font-weight: bold !important;
 }
 
-/* Checkbox container adjustments */
-.tasktimer-checkbox-container {
-  margin-left: 4px !important;
-  margin-right: 4px !important;
-}
-
-/* Individual buttons shouldn't be too wide */
-.tasktimer-button {
+/* Buttons within our extension */
+.tasktimer-popup .tasktimer-button {
   min-width: 24px !important;
   width: 24px !important;
   height: 24px !important;
   padding: 0 !important;
   margin: 0 2px !important;
+  background-color: transparent !important;
+  border: none !important;
 }
 
-/* Adjust page indicator */
-.popup-menu-item:first-child {
-  padding: 2px !important;
+.tasktimer-popup .tasktimer-button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Menu items shouldn't have horizontal margins */
-.popup-menu-item {
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+.tasktimer-popup .tasktimer-button:active {
+  background-color: rgba(255, 255, 255, 0.2) !important;
 }
 
-/* Simple fix for task item width - add these to your stylesheet.css */
-
-/* Make sure the content width is correct */
-.tasktimer-popup .popup-menu-content {
-  width: 600px !important;
+/* Checkbox container */
+.tasktimer-popup .tasktimer-checkbox-container {
+  margin-left: 4px !important;
+  margin-right: 4px !important;
+  spacing: 4px !important;
 }
 
-/* Make task rows expand to available width */
-.tasktimer-row, 
-.tasktimer-checkbox-row {
-  width: 100%;
-  margin-left: 10px !important;
-  margin-right: 10px !important;
+/* Checkbox buttons */
+.tasktimer-popup .tasktimer-checkbox-button {
+  border-radius: 4px !important;
+  width: 24px !important;
+  height: 24px !important;
+  margin: 0 2px !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Tell containers to use horizontal space efficiently */
-.tasktimer-row StBoxLayout,
-.tasktimer-checkbox-row StBoxLayout {
-  x-expand: true !important;
+.tasktimer-popup .tasktimer-checkbox-button:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
 }
 
-/* Task names should grow to fill space */
-.tasktimer-name {
-  x-expand: true !important;
+/* New task entries */
+.tasktimer-popup .tasktimer-new-task-entry {
+  min-height: 24px !important;
+  padding: 2px 8px !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
+}
+
+/* New task sliders */
+.tasktimer-popup .tasktimer-new-task-slider {
+  height: 6px !important;
+  width: 200px !important;
+}
+
+/* The animation is automatically scoped */
+@keyframes tasktimer-overtime-pulse {
+  0% { border-color: #f55; }
+  50% { border-color: #ff8080; }
+  100% { border-color: #f55; }
+}
+
+/* Time label in panel */
+.tasktimer-time-label {
+  font-size: 14px !important;
+  font-weight: bold !important;
+  margin: 0 10px !important;
 }
