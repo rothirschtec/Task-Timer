@@ -28,7 +28,7 @@ const CONFIG_DIR = GLib.build_filenamev([GLib.get_user_config_dir(), 'TaskTimer'
 const STATE_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.json']);
 
 // Set how many tasks to display at once
-const VISIBLE_TASKS = 15;
+const VISIBLE_TASKS = 12;
 
 export default GObject.registerClass(
 class TaskTimer extends PanelMenu.Button {
