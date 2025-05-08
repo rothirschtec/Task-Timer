@@ -1,5 +1,6 @@
 // classes/task_timer.js
 // Update with custom navigation controls instead of scrollbars
+// Added robust state management to prevent data loss on logout/login
 
 import GObject   from 'gi://GObject';
 import St        from 'gi://St';
@@ -26,6 +27,8 @@ const DOWN_ICON = Gio.icon_new_for_string('go-down-symbolic');
 /* ~/.config/TaskTimer/state.json */
 const CONFIG_DIR = GLib.build_filenamev([GLib.get_user_config_dir(), 'TaskTimer']);
 const STATE_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.json']);
+const BACKUP_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.backup.json']);
+const TEMP_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.temp.json']);
 
 // Set how many tasks to display at once
 const VISIBLE_TASKS = 12;
@@ -42,6 +45,9 @@ class TaskTimer extends PanelMenu.Button {
             this._taskHistory = {};
             this._lastDate = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD format
             this._tasksOffset = 0; // Initial offset in the tasks display
+            this._stateLoaded = false; // Track if state was loaded successfully
+            this._saveOperationInProgress = false; // Track if a save operation is in progress
+            this._pendingSave = false; // Track if a save is pending but couldn't be performed
             
             /* load saved tasks */
             this._loadState();
@@ -69,14 +75,29 @@ class TaskTimer extends PanelMenu.Button {
             this._updateIndicator();
 
             /* autosave */
+            // More frequent autosave (now every 15 seconds)
             this._autosaveID = GLib.timeout_add_seconds(
-                GLib.PRIORITY_LOW, 30,
-                () => { this._saveState(); return GLib.SOURCE_CONTINUE; });
+                GLib.PRIORITY_LOW, 15,
+                () => { 
+                    this._saveState(); 
+                    return GLib.SOURCE_CONTINUE; 
+                });
                 
             // Backup timer for indicator updates (not critical now with direct updates)
             this._updateTimerID = GLib.timeout_add_seconds(
                 GLib.PRIORITY_LOW, 5,
-                () => { this._updateIndicator(); return GLib.SOURCE_CONTINUE; });
+                () => { 
+                    this._updateIndicator(); 
+                    return GLib.SOURCE_CONTINUE; 
+                });
+            
+            // Add menu open/close handlers for better state management
+            this.menu.connect('open-state-changed', (menu, isOpen) => {
+                if (!isOpen) {
+                    // Save state when menu is closed to ensure latest changes are saved
+                    this._saveState();
+                }
+            });
                 
             log("TaskTimer: Initialization complete");
         } catch (e) {
@@ -397,6 +418,16 @@ class TaskTimer extends PanelMenu.Button {
                 this._checkboxRow.label.text = boxes ? _(`＋ New checklist… (${boxes} boxes)`)
                                                 : _('＋ New checklist…');
             });
+            
+            // Handle return/enter key press in checklist name field
+            this._checkEntry.clutter_text.connect('key-press-event', (_o, e) => {
+                const symbol = e.get_key_symbol();
+                if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter) {
+                    this._onAddCheckbox();
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            });
         } catch (e) {
             log(`TaskTimer: Error in _buildCheckboxRow: ${e.message}`);
         }
@@ -458,7 +489,8 @@ class TaskTimer extends PanelMenu.Button {
                 running: false,
                 weekdays: weekdays,
                 description: _('Enter description here!'),
-                createdOn: this._lastDate // Store creation date
+                createdOn: this._lastDate, // Store creation date
+                id: `task_${Date.now()}_${Math.floor(Math.random() * 10000)}` // Unique ID
             };
             
             // Add to the beginning of the tasks array
@@ -493,7 +525,8 @@ class TaskTimer extends PanelMenu.Button {
                 checked: Array(boxes).fill(false),
                 color: Utils.generateColor(),
                 description: _('Enter description here!'),
-                createdOn: this._lastDate // Store creation date
+                createdOn: this._lastDate, // Store creation date
+                id: `checkbox_${Date.now()}_${Math.floor(Math.random() * 10000)}` // Unique ID
             };
             
             // Add to the beginning of the tasks array
@@ -551,6 +584,7 @@ class TaskTimer extends PanelMenu.Button {
             row.connect('update_signal', () => {
                 log("TaskTimer: Update signal received");
                 this._updateIndicator();
+                this._saveState(); // Save state when task is updated
             });
             row.connect('settings_signal', () => {
                 log("TaskTimer: Settings signal received");
@@ -592,7 +626,9 @@ class TaskTimer extends PanelMenu.Button {
                 log("TaskTimer: Down checkbox item clicked");
                 this._moveRow(row, 1);
             });
-            row.connect('update_signal', () => this._saveState());
+            row.connect('update_signal', () => {
+                this._saveState();
+            });
             // Add settings signal handlers
             row.connect('settings_signal', () => {
                 log("TaskTimer: Checkbox settings signal received");
@@ -695,6 +731,7 @@ class TaskTimer extends PanelMenu.Button {
                 this._updateIndicator();
                 row._refreshBg(); // Make sure to update bg color if changed
                 row._updateTimeLabel(); // Add this line to update the time display
+                this._saveState(); // Save when settings are updated
             });
             
             const idx = this._taskSection._getMenuItems().indexOf(row);
@@ -725,6 +762,7 @@ class TaskTimer extends PanelMenu.Button {
             settings.connect('update_signal', () => {
                 log("TaskTimer: Checkbox settings update signal received");
                 row.set_style(`background-color:${row.task.color};`); // Update bg color if changed
+                this._saveState(); // Save when settings are updated
             });
 
             const idx = this._taskSection._getMenuItems().indexOf(row);
@@ -742,6 +780,9 @@ class TaskTimer extends PanelMenu.Button {
             if (row._settingsRow) { 
                 row._settingsRow.destroy(); 
                 row._settingsRow = null; 
+                
+                // Save state when settings are closed
+                this._saveState();
             }
         } catch (e) {
             log(`TaskTimer: Error in _closeSettings: ${e.message}`);
@@ -798,98 +839,256 @@ class TaskTimer extends PanelMenu.Button {
         }
     }
     
+    /**
+     * Improved _saveState method - Now uses atomic save pattern 
+     * to prevent data corruption during logout or crashes
+     */
     _saveState() {
+        // Skip if save is already in progress
+        if (this._saveOperationInProgress) {
+            this._pendingSave = true;
+            log("TaskTimer: Save operation already in progress, marking as pending");
+            return;
+        }
+        
         try {
-            if (!this._ensureDir()) return;
+            this._saveOperationInProgress = true;
             
-            // Create the data structure with dates
+            if (!this._ensureDir()) {
+                this._saveOperationInProgress = false;
+                return;
+            }
+            
+            // First, create a backup of the current state if it exists
+            if (GLib.file_test(STATE_FILE, GLib.FileTest.EXISTS)) {
+                try {
+                    const [ok, contents] = GLib.file_get_contents(STATE_FILE);
+                    if (ok) {
+                        // Only backup if we can read the current file
+                        GLib.file_set_contents(BACKUP_FILE, contents);
+                    }
+                } catch (backupError) {
+                    log(`TaskTimer: Error creating backup: ${backupError.message}`);
+                    // Continue even if backup fails
+                }
+            }
+            
+            // Create the data structure with dates and add version info
             const saveData = {
+                version: 2, // Version indicator 
                 lastDate: this._lastDate,
                 tasks: this._tasks,
-                taskHistory: this._taskHistory || {}
+                taskHistory: this._taskHistory || {},
+                saveTime: Date.now() // Add timestamp
             };
             
-            GLib.file_set_contents(STATE_FILE, JSON.stringify(saveData)); 
-            log("TaskTimer: State saved successfully");
+            const jsonContent = JSON.stringify(saveData, null, 2); // Pretty print for better debugging
+            
+            // First write to a temporary file
+            GLib.file_set_contents(TEMP_FILE, jsonContent);
+            
+            // Then atomically replace the real file with the temp file
+            // This helps prevent corruption if the system crashes during write
+            const tempFile = Gio.File.new_for_path(TEMP_FILE);
+            const stateFile = Gio.File.new_for_path(STATE_FILE);
+            
+            try {
+                // Use Gio for atomic move operation
+                tempFile.move(stateFile, 
+                    Gio.FileCopyFlags.OVERWRITE | Gio.FileCopyFlags.ALL_METADATA, 
+                    null, null);
+                    
+                log("TaskTimer: State saved successfully");
+            } catch (moveError) {
+                // If atomic move fails, try fallback method
+                log(`TaskTimer: Atomic move failed: ${moveError.message}, trying fallback`);
+                
+                // Direct write as fallback
+                try {
+                    GLib.file_set_contents(STATE_FILE, jsonContent);
+                    log("TaskTimer: State saved with fallback method");
+                } catch (e) {
+                    log(`TaskTimer: Fallback save failed: ${e.message}`);
+                    throw e; // Re-throw to handle in outer catch
+                }
+            }
+            
+            this._saveOperationInProgress = false;
+            
+            // If there was a pending save request, process it now
+            if (this._pendingSave) {
+                this._pendingSave = false;
+                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+                    this._saveState();
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
         }
-        catch (e) { log(`TaskTimer: Save failed – ${e.message}`); }
+        catch (e) { 
+            log(`TaskTimer: Save failed – ${e.message}`); 
+            this._saveOperationInProgress = false;
+        }
     }
     
+    /**
+     * Improved state loading with better error recovery and fallbacks
+     */
     _loadState() {
         try {
             if (!this._ensureDir()) return;
-            if (!GLib.file_test(STATE_FILE, GLib.FileTest.EXISTS)) {
+            
+            // Check if main state file exists
+            const mainFileExists = GLib.file_test(STATE_FILE, GLib.FileTest.EXISTS);
+            const backupFileExists = GLib.file_test(BACKUP_FILE, GLib.FileTest.EXISTS);
+            
+            if (!mainFileExists && !backupFileExists) {
                 log("TaskTimer: No state file exists yet");
                 return;
             }
             
-            const [ok, bytes] = GLib.file_get_contents(STATE_FILE);
-            if (ok) {
-                // First check if we can parse the file
-                let data;
+            // Try to load the main file first
+            let data = null;
+            let loadedFromBackup = false;
+            
+            if (mainFileExists) {
                 try {
-                    const content = imports.byteArray.toString(bytes);
-                    data = JSON.parse(content);
-                    log("TaskTimer: Successfully parsed state file");
-                } catch (parseError) {
-                    log(`TaskTimer: Failed to parse state file: ${parseError.message}`);
-                    // If parsing fails, back up the corrupted file and start fresh
-                    this._backupCorruptedFile();
-                    return;
-                }
-                
-                // Make sure data has the right structure
-                if (!data || typeof data !== 'object') {
-                    log("TaskTimer: Invalid data structure in state file");
-                    return;
-                }
-                
-                // Store historical data separately (if it exists)
-                if (data.taskHistory && typeof data.taskHistory === 'object') {
-                    this._taskHistory = data.taskHistory;
-                } else {
-                    this._taskHistory = {};
-                }
-                
-                // Get today's date
-                const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-                
-                // Check if data has lastDate property and it's valid
-                if (data.lastDate && typeof data.lastDate === 'string' && data.tasks && Array.isArray(data.tasks)) {
-                    if (data.lastDate === today) {
-                        // Use today's data
-                        this._tasks = data.tasks;
-                        this._lastDate = today;
-                        log(`TaskTimer: Loaded current day's data (${today})`);
-                    } else {
-                        // New day - initialize with zero values but preserve names/structures
-                        this._lastDate = today;
-                        
-                        log(`TaskTimer: New day detected! Storing previous day (${data.lastDate}) in history`);
-                        // Store previous day's data in history
-                        this._taskHistory[data.lastDate] = data.tasks;
-                        // Initialize new day based on previous tasks
-                        this._tasks = this._initializeNewDay(data.tasks);
-                        
-                        // Save the state after initializing the new day
-                        this._saveState();
+                    const [ok, bytes] = GLib.file_get_contents(STATE_FILE);
+                    if (ok) {
+                        const content = imports.byteArray.toString(bytes);
+                        data = JSON.parse(content);
+                        log("TaskTimer: Successfully loaded state from main file");
                     }
-                } else {
-                    // Handle old format or invalid data
-                    log("TaskTimer: Using fallback data loading (old format or invalid data)");
-                    if (Array.isArray(data)) {
-                        // Old format - array of tasks
-                        this._tasks = data;
-                    } else if (data.tasks && Array.isArray(data.tasks)) {
-                        // Has tasks array but invalid lastDate
-                        this._tasks = data.tasks;
+                } catch (mainError) {
+                    log(`TaskTimer: Failed to load from main file: ${mainError.message}`);
+                    // Main file failed, try backup
+                    if (backupFileExists) {
+                        try {
+                            const [ok, bytes] = GLib.file_get_contents(BACKUP_FILE);
+                            if (ok) {
+                                const content = imports.byteArray.toString(bytes);
+                                data = JSON.parse(content);
+                                loadedFromBackup = true;
+                                log("TaskTimer: Successfully loaded state from backup file");
+                            }
+                        } catch (backupError) {
+                            log(`TaskTimer: Failed to load from backup file: ${backupError.message}`);
+                            
+                            // Both files failed, create a recovery backup and initialize empty
+                            this._backupCorruptedFile();
+                            return;
+                        }
                     } else {
-                        // Invalid format, start fresh
-                        this._tasks = [];
+                        // Only main file exists but it's corrupted
+                        this._backupCorruptedFile();
+                        return;
                     }
-                    this._lastDate = today;
+                }
+            } else if (backupFileExists) {
+                // Only backup exists
+                try {
+                    const [ok, bytes] = GLib.file_get_contents(BACKUP_FILE);
+                    if (ok) {
+                        const content = imports.byteArray.toString(bytes);
+                        data = JSON.parse(content);
+                        loadedFromBackup = true;
+                        log("TaskTimer: Successfully loaded state from backup file (main file missing)");
+                    }
+                } catch (backupError) {
+                    log(`TaskTimer: Failed to load from backup file: ${backupError.message}`);
+                    return;
                 }
             }
+            
+            // If we loaded from backup, restore it as the main file
+            if (loadedFromBackup) {
+                try {
+                    // Write the loaded backup back to the main file
+                    GLib.file_set_contents(STATE_FILE, JSON.stringify(data, null, 2));
+                    log("TaskTimer: Restored main file from backup");
+                } catch (restoreError) {
+                    log(`TaskTimer: Failed to restore main file: ${restoreError.message}`);
+                }
+            }
+            
+            // Process the loaded data
+            if (!data || typeof data !== 'object') {
+                log("TaskTimer: Invalid data structure in state file");
+                this._tasks = [];
+                this._taskHistory = {};
+                this._lastDate = new Date().toISOString().split('T')[0];
+                return;
+            }
+            
+            // Handle version differences
+            const dataVersion = data.version || 1; // Default to version 1 if not specified
+            
+            // Store historical data separately (if it exists)
+            if (data.taskHistory && typeof data.taskHistory === 'object') {
+                this._taskHistory = data.taskHistory;
+            } else {
+                this._taskHistory = {};
+            }
+            
+            // Get today's date
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            
+            // Check if data has lastDate property and it's valid
+            if (data.lastDate && typeof data.lastDate === 'string' && data.tasks && Array.isArray(data.tasks)) {
+                if (data.lastDate === today) {
+                    // Use today's data
+                    this._tasks = data.tasks;
+                    this._lastDate = today;
+                    log(`TaskTimer: Loaded current day's data (${today})`);
+                    
+                    // Ensure each task has an ID (for older data format)
+                    if (dataVersion === 1) {
+                        this._tasks = this._tasks.map(task => {
+                            if (!task.id) {
+                                task.id = `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                            }
+                            return task;
+                        });
+                    }
+                } else {
+                    // New day - initialize with zero values but preserve names/structures
+                    this._lastDate = today;
+                    
+                    log(`TaskTimer: New day detected! Storing previous day (${data.lastDate}) in history`);
+                    // Store previous day's data in history
+                    this._taskHistory[data.lastDate] = data.tasks;
+                    // Initialize new day based on previous tasks
+                    this._tasks = this._initializeNewDay(data.tasks);
+                    
+                    // Save the state after initializing the new day
+                    this._saveState();
+                }
+            } else {
+                // Handle old format or invalid data
+                log("TaskTimer: Using fallback data loading (old format or invalid data)");
+                if (Array.isArray(data)) {
+                    // Old format - array of tasks
+                    this._tasks = data;
+                } else if (data.tasks && Array.isArray(data.tasks)) {
+                    // Has tasks array but invalid lastDate
+                    this._tasks = data.tasks;
+                } else {
+                    // Invalid format, start fresh
+                    this._tasks = [];
+                }
+                this._lastDate = today;
+                
+                // Ensure all tasks have IDs
+                this._tasks = this._tasks.map(task => {
+                    if (!task.id) {
+                        task.id = `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                    }
+                    return task;
+                });
+            }
+            
+            // Mark state as successfully loaded
+            this._stateLoaded = true;
+            
         } catch (e) { 
             log(`TaskTimer: Load failed – ${e.message}`); 
             // Reset to default values
@@ -902,15 +1101,36 @@ class TaskTimer extends PanelMenu.Button {
     // Backup corrupted state file
     _backupCorruptedFile() {
         try {
-            const backupFile = `${STATE_FILE}.backup-${Date.now()}`;
+            // Create a timestamped backup name
+            const backupFile = `${STATE_FILE}.corrupted-${Date.now()}`;
             log(`TaskTimer: Backing up corrupted state file to ${backupFile}`);
             
-            const [ok, bytes] = GLib.file_get_contents(STATE_FILE);
-            if (ok) {
-                GLib.file_set_contents(backupFile, bytes);
+            // Try to read the main file first
+            try {
+                const [ok, bytes] = GLib.file_get_contents(STATE_FILE);
+                if (ok) {
+                    GLib.file_set_contents(backupFile, bytes);
+                    log("TaskTimer: Successfully backed up corrupted main file");
+                }
+            } catch (mainError) {
+                log(`TaskTimer: Failed to backup main file: ${mainError.message}`);
+            }
+            
+            // Try to backup the backup file if it exists
+            if (GLib.file_test(BACKUP_FILE, GLib.FileTest.EXISTS)) {
+                try {
+                    const backupOfBackup = `${BACKUP_FILE}.corrupted-${Date.now()}`;
+                    const [ok, bytes] = GLib.file_get_contents(BACKUP_FILE);
+                    if (ok) {
+                        GLib.file_set_contents(backupOfBackup, bytes);
+                        log("TaskTimer: Successfully backed up corrupted backup file");
+                    }
+                } catch (backupError) {
+                    log(`TaskTimer: Failed to backup the backup file: ${backupError.message}`);
+                }
             }
         } catch (e) {
-            log(`TaskTimer: Failed to backup corrupted file: ${e.message}`);
+            log(`TaskTimer: Failed to create corrupted file backup: ${e.message}`);
         }
     }
     
@@ -924,8 +1144,13 @@ class TaskTimer extends PanelMenu.Button {
                     return null;
                 }
                 
-                // Make a copy of the task to avoid modifying the original
-                const newTask = {...task};
+                // Make a deep copy of the task to avoid modifying the original
+                const newTask = JSON.parse(JSON.stringify(task));
+                
+                // Ensure task has an ID
+                if (!newTask.id) {
+                    newTask.id = `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                }
                 
                 if (task.isCheckbox) {
                     // Reset checkbox values
@@ -974,16 +1199,40 @@ class TaskTimer extends PanelMenu.Button {
     /* ─────────── cleanup ─────────── */
     disable() {
         try {
+            log("TaskTimer: Extension being disabled");
+            
+            // Perform final save immediately
             if (this._autosaveID) {
                 GLib.source_remove(this._autosaveID);
                 this._autosaveID = 0;
             }
+            
             if (this._updateTimerID) {
                 GLib.source_remove(this._updateTimerID);
                 this._updateTimerID = 0;
             }
-            this._saveState();
+            
+            // Make sure we save all data
+            try {
+                // Force a synchronous save operation when disabling
+                this._saveState();
+                
+                // Wait a short time to ensure save completes
+                // This is a workaround because we can't use async methods properly in disable()
+                // The timeout gives a little breathing room for the save operation to finish
+                // before GNOME Shell fully unloads the extension
+                GLib.usleep(100000); // 100ms
+                
+                // Perform a second save attempt to be extra certain
+                this._saveState();
+                
+                log("TaskTimer: Final state save completed");
+            } catch (saveError) {
+                log(`TaskTimer: Error during final save: ${saveError.message}`);
+            }
+            
             this.menu.removeAll();
+            log("TaskTimer: Extension disabled successfully");
         } catch (e) {
             log(`TaskTimer: Error in disable: ${e.message}`);
         }
