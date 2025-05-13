@@ -62,6 +62,7 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
 
         this.task = task;
         this._timerId = 0;
+        this._snoozeTimerId = 0;
         this.settingsOpen = false;
 
         // Setup UI
@@ -293,9 +294,10 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
                 // Emit signal for other listeners
                 this.emit('update_signal');
                 
-                // Notify if planned time reached
+                // Check if planned time reached
                 if (this.task.currTime === this.task.planned) {
-                    Main.notify(_('"%s" reached planned time').format(this.task.name));
+                    log(`TaskTimer: Task "${this.task.name}" reached planned time`);
+                    this._showTimerCompletedDialog();
                 }
                 
                 return true; // Keep the timer running
@@ -314,6 +316,45 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         }
         
         this.emit('update_signal');
+    }
+    
+    // Helper method to show timer completed dialog
+    _showTimerCompletedDialog() {
+        // Import the TimerCompletedDialog dynamically to avoid circular dependencies
+        import('./timer_notification.js').then(({TimerCompletedDialog}) => {
+            // Create and show the modal dialog
+            const dialog = new TimerCompletedDialog(
+                this.task.name,
+                Utils.mmss(this.task.planned)
+            );
+            
+            // Connect to the closed signal to check if we should stop the timer
+            dialog.connect('closed', () => {
+                if (dialog.shouldStopTimer) {
+                    log("TaskTimer: Dialog requested to stop timer");
+                    this._onPauseClicked();
+                } else if (dialog.snoozeRequested) {
+                    log("TaskTimer: Dialog requested snooze (5 min)");
+                    // Set up a timer to show the notification again in 5 minutes
+                    this._snoozeTimerId = GLib.timeout_add_seconds(
+                        GLib.PRIORITY_DEFAULT,
+                        300, // 5 minutes = 300 seconds
+                        () => {
+                            log("TaskTimer: Snooze time elapsed, showing notification again");
+                            this._showTimerCompletedDialog();
+                            this._snoozeTimerId = 0;
+                            return GLib.SOURCE_REMOVE;
+                        }
+                    );
+                }
+            });
+            
+            dialog.open();
+        }).catch(e => {
+            log(`TaskTimer: Error showing dialog: ${e.message}`);
+            // Fallback to standard notification if dialog fails
+            Main.notify(_('"%s" reached planned time').format(this.task.name));
+        });
     }
 
     _stopTimer() {
@@ -370,7 +411,15 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
     }
 
     destroy() {
+        // Stop the regular timer
         this._stopTimer();
+        
+        // Also clean up snooze timer if it exists
+        if (this._snoozeTimerId) {
+            GLib.source_remove(this._snoozeTimerId);
+            this._snoozeTimerId = 0;
+        }
+        
         super.destroy();
     }
 });

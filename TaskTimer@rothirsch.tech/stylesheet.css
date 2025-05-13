@@ -194,3 +194,57 @@
   font-weight: bold !important;
   margin: 0 10px !important;
 }
+
+/* Add these styles to the end of your stylesheet.css file */
+
+/* Timer completed dialog styles */
+.timer-completed-dialog .modal-dialog-content-box {
+  margin: 32px 40px;
+  spacing: 16px;
+  max-width: 28em;
+}
+
+.timer-completed-content {
+  spacing: 16px;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.timer-completed-header {
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  color: #f66151; /* Red color for emphasis */
+}
+
+.timer-completed-task-name {
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.timer-completed-description {
+  font-size: 14px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.timer-completed-countdown {
+  font-size: 12px;
+  font-style: italic;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 8px;
+}
+
+/* Pulsing animation */
+@keyframes timer-completed-pulse {
+  0% { box-shadow: 0 0 0 0px rgba(246, 97, 81, 0.4); }
+  50% { box-shadow: 0 0 0 20px rgba(246, 97, 81, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(246, 97, 81, 0); }
+}
+
+.timer-completed-content {
+  animation: timer-completed-pulse 2s infinite;
+}
