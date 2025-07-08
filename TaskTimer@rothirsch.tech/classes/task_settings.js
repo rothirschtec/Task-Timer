@@ -139,6 +139,11 @@ export default class TaskSettings extends PopupMenu.PopupMenuSection {
 
         this.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
+        /* round-up setting */
+        this._makeRoundUpSetting();
+
+        this.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
         /* weekly table */
         this._makeWeekHeader();
         this._makeWeekNumbers();
@@ -239,6 +244,74 @@ _makeSlider(label, init, cb) {
     item.add_child(row);
     this.addMenuItem(item);
 }
+
+    _makeRoundUpSetting() {
+        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        const row = new St.BoxLayout({ 
+            style_class: 'settings-box',
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        
+        // Label
+        row.add_child(new St.Label({ 
+            text: _('Round up (minutes):'), 
+            style_class: 'settings-label'
+        }));
+        
+        // Ensure task has roundUpMinutes property
+        if (this.task.roundUpMinutes === undefined) {
+            this.task.roundUpMinutes = 0;
+        }
+        
+        // Round-up values
+        const roundUpValues = [
+            { label: _('Off'), value: 0 },
+            { label: _('5 min'), value: 5 },
+            { label: _('10 min'), value: 10 },
+            { label: _('15 min'), value: 15 },
+            { label: _('30 min'), value: 30 },
+            { label: _('60 min'), value: 60 }
+        ];
+        
+        // Find current index
+        let currentIndex = roundUpValues.findIndex(v => v.value === this.task.roundUpMinutes);
+        if (currentIndex === -1) currentIndex = 0;
+        
+        // Create cycling button
+        const cycleBtn = new St.Button({
+            label: roundUpValues[currentIndex].label,
+            style_class: 'roundup-cycle-btn',
+            reactive: true,
+            can_focus: true,
+            style: 'min-width: 80px; padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px;'
+        });
+        
+        // Connect button to cycle through values
+        cycleBtn.connect('clicked', () => {
+            currentIndex = (currentIndex + 1) % roundUpValues.length;
+            const newOption = roundUpValues[currentIndex];
+            
+            this.task.roundUpMinutes = newOption.value;
+            cycleBtn.label = newOption.label;
+            this.emit('update_signal');
+            log(`TaskTimer: Round-up setting changed to ${newOption.value} minutes`);
+        });
+        
+        // Add elements to the row
+        row.add_child(cycleBtn);
+        
+        // Add some help text
+        const helpLabel = new St.Label({
+            text: _('Click to cycle through options'),
+            style_class: 'settings-help-text',
+            style: 'font-size: 11px; color: #888; margin-left: 10px;'
+        });
+        row.add_child(helpLabel);
+        
+        item.add_child(row);
+        this.addMenuItem(item);
+    }
+
     _makeWeekHeader() {
         const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         const row = new St.BoxLayout({ style_class: 'settings-box' });

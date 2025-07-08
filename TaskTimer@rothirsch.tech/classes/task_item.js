@@ -373,6 +373,45 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         
         this.emit('update_signal');
     }
+    
+    // Stop timer with round-up functionality
+    stopWithRoundUp() {
+        if (this._timerId) {
+            log("TaskTimer: Removing timer with ID " + this._timerId);
+            GLib.Source.remove(this._timerId);
+            this._timerId = 0;
+        }
+        
+        // Apply round-up if configured
+        if (this.task.roundUpMinutes && this.task.roundUpMinutes > 0) {
+            const roundUpSeconds = this.task.roundUpMinutes * 60;
+            const roundedTime = this._roundUpTime(this.task.currTime, roundUpSeconds);
+            
+            log(`TaskTimer: Rounding up "${this.task.name}" from ${Utils.mmss(this.task.currTime)} to ${Utils.mmss(roundedTime)}`);
+            this.task.currTime = roundedTime;
+        }
+        
+        this.task.lastStop = this.task.currTime;
+        
+        // Direct parent update
+        if (this._parent && typeof this._parent.forceUpdateNow === 'function') {
+            this._parent.forceUpdateNow();
+        }
+        
+        this.emit('update_signal');
+    }
+    
+    _roundUpTime(currentTime, roundUpSeconds) {
+        if (roundUpSeconds <= 0) return currentTime;
+        
+        // Round up to the next multiple of roundUpSeconds
+        const remainder = currentTime % roundUpSeconds;
+        if (remainder === 0) {
+            return currentTime; // Already at a round number
+        }
+        
+        return currentTime + (roundUpSeconds - remainder);
+    }
 
     _updateTimeLabel() {
         this._timeLbl.text = `${Utils.mmss(this.task.currTime)} / ${Utils.mmss(this.task.planned)}`;

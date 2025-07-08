@@ -31,7 +31,7 @@ const BACKUP_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.backup.json']);
 const TEMP_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.temp.json']);
 
 // Set how many tasks to display at once
-const VISIBLE_TASKS = 12;
+const VISIBLE_TASKS = 15;
 
 export default GObject.registerClass(
 class TaskTimer extends PanelMenu.Button {
@@ -98,6 +98,9 @@ class TaskTimer extends PanelMenu.Button {
                     this._saveState();
                 }
             });
+            
+            // Add system event handlers for round-up functionality
+            this._setupSystemEventHandlers();
                 
             log("TaskTimer: Initialization complete");
         } catch (e) {
@@ -490,7 +493,8 @@ class TaskTimer extends PanelMenu.Button {
                 weekdays: weekdays,
                 description: _('Enter description here!'),
                 createdOn: this._lastDate, // Store creation date
-                id: `task_${Date.now()}_${Math.floor(Math.random() * 10000)}` // Unique ID
+                id: `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`, // Unique ID
+                roundUpMinutes: 0 // Round-up setting in minutes (0 = disabled)
             };
             
             // Add to the beginning of the tasks array
@@ -1086,6 +1090,14 @@ class TaskTimer extends PanelMenu.Button {
                 });
             }
             
+            // Ensure all tasks have roundUpMinutes property (for backward compatibility)
+            this._tasks = this._tasks.map(task => {
+                if (task.roundUpMinutes === undefined) {
+                    task.roundUpMinutes = 0;
+                }
+                return task;
+            });
+            
             // Mark state as successfully loaded
             this._stateLoaded = true;
             
@@ -1152,6 +1164,11 @@ class TaskTimer extends PanelMenu.Button {
                     newTask.id = `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
                 }
                 
+                // Ensure task has roundUpMinutes property
+                if (newTask.roundUpMinutes === undefined) {
+                    newTask.roundUpMinutes = 0;
+                }
+                
                 if (task.isCheckbox) {
                     // Reset checkbox values
                     newTask.checked = Array(task.checkCount || 0).fill(false);
@@ -1196,10 +1213,123 @@ class TaskTimer extends PanelMenu.Button {
         }
     }
 
+    /* ─────────── System Event Handlers ─────────── */
+    _setupSystemEventHandlers() {
+        try {
+            // Import the required modules for system event handling
+            import('resource:///org/gnome/shell/ui/main.js').then(Main => {
+                const screenShield = Main.screenShield;
+                
+                // Set up screen lock handler
+                if (screenShield) {
+                    this._screenLockSignalId = screenShield.connect('locked-changed', () => {
+                        if (screenShield.locked) {
+                            log("TaskTimer: Screen locked, stopping timers with round-up");
+                            this._handleSystemEvent('lock');
+                        }
+                    });
+                }
+                
+                log("TaskTimer: Screen lock handler set up successfully");
+            }).catch(e => {
+                log(`TaskTimer: Error setting up screen lock handler: ${e.message}`);
+            });
+            
+            // Set up session manager for logout detection
+            import('resource:///org/gnome/shell/misc/gnomeSession.js').then(SessionManager => {
+                if (SessionManager) {
+                    const sessionManager = new SessionManager.SessionManager();
+                    this._logoutSignalId = sessionManager.connect('PresenceChanged', (proxy, senderName, [status]) => {
+                        if (status === 3) { // Session ending
+                            log("TaskTimer: Session ending, stopping timers with round-up");
+                            this._handleSystemEvent('logout');
+                        }
+                    });
+                }
+                
+                log("TaskTimer: Session manager handler set up successfully");
+            }).catch(e => {
+                log(`TaskTimer: Error setting up session manager handler: ${e.message}`);
+            });
+            
+            log("TaskTimer: System event handlers initialization started");
+        } catch (e) {
+            log(`TaskTimer: Error setting up system event handlers: ${e.message}`);
+        }
+    }
+    
+    _handleSystemEvent(eventType) {
+        log(`TaskTimer: Handling system event: ${eventType}`);
+        
+        // Stop all running timers and apply round-up if configured
+        this._tasks.forEach(task => {
+            if (task.running && !task.isCheckbox) {
+                log(`TaskTimer: Stopping timer for "${task.name}" due to ${eventType}`);
+                
+                // Stop the timer
+                task.running = false;
+                
+                // Apply round-up if configured
+                if (task.roundUpMinutes && task.roundUpMinutes > 0) {
+                    const roundUpSeconds = task.roundUpMinutes * 60;
+                    const roundedTime = this._roundUpTime(task.currTime, roundUpSeconds);
+                    
+                    log(`TaskTimer: Rounding up "${task.name}" from ${Utils.mmss(task.currTime)} to ${Utils.mmss(roundedTime)}`);
+                    task.currTime = roundedTime;
+                }
+                
+                task.lastStop = task.currTime;
+            }
+        });
+        
+        // Update the display and save state
+        this._updateTaskDisplay();
+        this._updateIndicator();
+        this._saveState();
+    }
+    
+    _roundUpTime(currentTime, roundUpSeconds) {
+        if (roundUpSeconds <= 0) return currentTime;
+        
+        // Round up to the next multiple of roundUpSeconds
+        const remainder = currentTime % roundUpSeconds;
+        if (remainder === 0) {
+            return currentTime; // Already at a round number
+        }
+        
+        return currentTime + (roundUpSeconds - remainder);
+    }
+
     /* ─────────── cleanup ─────────── */
     disable() {
         try {
             log("TaskTimer: Extension being disabled");
+            
+            // Clean up system event handlers
+            if (this._screenLockSignalId) {
+                try {
+                    import('resource:///org/gnome/shell/ui/main.js').then(Main => {
+                        if (Main.screenShield) {
+                            Main.screenShield.disconnect(this._screenLockSignalId);
+                        }
+                    }).catch(e => {
+                        log(`TaskTimer: Error disconnecting screen lock signal: ${e.message}`);
+                    });
+                } catch (e) {
+                    log(`TaskTimer: Error disconnecting screen lock signal: ${e.message}`);
+                }
+                this._screenLockSignalId = null;
+            }
+            
+            if (this._logoutSignalId) {
+                try {
+                    // Session manager cleanup would go here if needed
+                    log("TaskTimer: Cleaned up session manager signal");
+                } catch (e) {
+                    log(`TaskTimer: Error disconnecting logout signal: ${e.message}`);
+                }
+                this._logoutSignalId = null;
+            }
             
             // Perform final save immediately
             if (this._autosaveID) {
