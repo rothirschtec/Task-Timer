@@ -218,7 +218,7 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         this._pause.hide();
         this._play.show();
         this.task.running = false;
-        this._stopTimer();
+        this.stopWithRoundUp();
     }
 
     _onRestartClicked() {
@@ -392,6 +392,10 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         }
         
         this.task.lastStop = this.task.currTime;
+        
+        // Update UI immediately to show round-up
+        this._updateTimeLabel();
+        this._refreshBg();
         
         // Direct parent update
         if (this._parent && typeof this._parent.forceUpdateNow === 'function') {

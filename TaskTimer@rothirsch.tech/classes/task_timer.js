@@ -48,6 +48,7 @@ class TaskTimer extends PanelMenu.Button {
             this._stateLoaded = false; // Track if state was loaded successfully
             this._saveOperationInProgress = false; // Track if a save operation is in progress
             this._pendingSave = false; // Track if a save is pending but couldn't be performed
+            this._runningBeforeLock = null; // Track which tasks were running before screen lock
             
             /* load saved tasks */
             this._loadState();
@@ -1226,6 +1227,9 @@ class TaskTimer extends PanelMenu.Button {
                         if (screenShield.locked) {
                             log("TaskTimer: Screen locked, stopping timers with round-up");
                             this._handleSystemEvent('lock');
+                        } else {
+                            log("TaskTimer: Screen unlocked, resuming timers");
+                            this._handleSystemEvent('unlock');
                         }
                     });
                 }
@@ -1261,26 +1265,66 @@ class TaskTimer extends PanelMenu.Button {
     _handleSystemEvent(eventType) {
         log(`TaskTimer: Handling system event: ${eventType}`);
         
-        // Stop all running timers and apply round-up if configured
-        this._tasks.forEach(task => {
-            if (task.running && !task.isCheckbox) {
-                log(`TaskTimer: Stopping timer for "${task.name}" due to ${eventType}`);
-                
-                // Stop the timer
-                task.running = false;
-                
-                // Apply round-up if configured
-                if (task.roundUpMinutes && task.roundUpMinutes > 0) {
-                    const roundUpSeconds = task.roundUpMinutes * 60;
-                    const roundedTime = this._roundUpTime(task.currTime, roundUpSeconds);
+        if (eventType === 'lock') {
+            // Store which tasks were running before lock
+            this._runningBeforeLock = [];
+            
+            // Stop all running timers and apply round-up if configured
+            this._tasks.forEach(task => {
+                if (task.running && !task.isCheckbox) {
+                    log(`TaskTimer: Stopping timer for "${task.name}" due to ${eventType}`);
                     
-                    log(`TaskTimer: Rounding up "${task.name}" from ${Utils.mmss(task.currTime)} to ${Utils.mmss(roundedTime)}`);
-                    task.currTime = roundedTime;
+                    // Store task ID so we can resume it later
+                    this._runningBeforeLock.push(task.id);
+                    
+                    // Stop the timer
+                    task.running = false;
+                    
+                    // Apply round-up if configured
+                    if (task.roundUpMinutes && task.roundUpMinutes > 0) {
+                        const roundUpSeconds = task.roundUpMinutes * 60;
+                        const roundedTime = this._roundUpTime(task.currTime, roundUpSeconds);
+                        
+                        log(`TaskTimer: Rounding up "${task.name}" from ${Utils.mmss(task.currTime)} to ${Utils.mmss(roundedTime)}`);
+                        task.currTime = roundedTime;
+                    }
+                    
+                    task.lastStop = task.currTime;
                 }
-                
-                task.lastStop = task.currTime;
+            });
+        } else if (eventType === 'unlock') {
+            // Resume timers that were running before lock
+            if (this._runningBeforeLock) {
+                this._tasks.forEach(task => {
+                    if (this._runningBeforeLock.includes(task.id)) {
+                        log(`TaskTimer: Resuming timer for "${task.name}"`);
+                        task.running = true;
+                    }
+                });
+                this._runningBeforeLock = null;
             }
-        });
+        } else if (eventType === 'logout') {
+            // Stop all running timers and apply round-up (no resume for logout)
+            this._tasks.forEach(task => {
+                if (task.running && !task.isCheckbox) {
+                    log(`TaskTimer: Stopping timer for "${task.name}" due to ${eventType}`);
+                    
+                    // Stop the timer
+                    task.running = false;
+                    
+                    // Apply round-up if configured
+                    if (task.roundUpMinutes && task.roundUpMinutes > 0) {
+                        const roundUpSeconds = task.roundUpMinutes * 60;
+                        const roundedTime = this._roundUpTime(task.currTime, roundUpSeconds);
+                        
+                        log(`TaskTimer: Rounding up "${task.name}" from ${Utils.mmss(task.currTime)} to ${Utils.mmss(roundedTime)}`);
+                        task.currTime = roundedTime;
+                    }
+                    
+                    task.lastStop = task.currTime;
+                }
+            });
+        }
         
         // Update the display and save state
         this._updateTaskDisplay();
