@@ -23,7 +23,9 @@
    ```
 
 3. Restart GNOME Shell:
+
    - Press Alt+F2
+
    - Type 'r' and press Enter
 
 4. Enable the extension:
@@ -34,20 +36,29 @@
 ## Key Changes Made
 
 1. **Avoid Modern JavaScript Features**
+
    - No arrow functions
+
    - No ES6 imports/exports
+
    - Traditional callback approach
 
 2. **Improved Signal Handling**
+
    - More robust connect/disconnect pattern
+
    - Better cleanup on destroy
 
 3. **Timer Implementation Updates**
+
    - Using GLib.timeout_add_seconds without the 'import' syntax
+
    - Properly removing timeouts when not needed
 
 4. **Compatibility with GNOME Shell 46.0**
+
    - Updated API usage patterns
+
    - Better widget initialization
 
 ## Troubleshooting
