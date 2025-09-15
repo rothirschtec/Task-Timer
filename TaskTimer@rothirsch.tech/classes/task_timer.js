@@ -1,398 +1,1444 @@
-const Main = imports.ui.main;
-const St = imports.gi.St;
-const PanelMenu = imports.ui.panelMenu;
-const PopupMenu = imports.ui.popupMenu;
-const Slider = imports.ui.slider;
-const Clutter = imports.gi.Clutter;
-const Lang = imports.lang;
-const Gtk = imports.gi.Gtk;
-const Gio = imports.gi.Gio;
-const GLib = imports.gi.GLib;
-const Shell = imports.gi.Shell;
-const Extension = imports.misc.extensionUtils.getCurrentExtension();
-const TaskItem = Extension.imports.classes.task_item;
-const Utils = Extension.imports.classes.utils;
-const task_settings = Extension.imports.classes.task_settings;
+// classes/task_timer.js
+// Update with custom navigation controls instead of scrollbars
+// Added robust state management to prevent data loss on logout/login
 
-const ADD_ICON = Gio.icon_new_for_string(Extension.path + "/icons/add_icon.png");
+import GObject   from 'gi://GObject';
+import St        from 'gi://St';
+import Clutter   from 'gi://Clutter';
+import Gio       from 'gi://Gio';
+import GLib      from 'gi://GLib';
 
-const KEY_RETURN = 65293;
-const KEY_ENTER = 65421;
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as Slider    from 'resource:///org/gnome/shell/ui/slider.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-function TaskTimer() {
-    this.next_id = 0;
-    this._init();
-}
+import { TaskItem }     from './task_item.js';
+import { CheckboxItem } from './checkbox_item.js';
+import TaskSettings     from './task_settings.js';
+import CheckboxSettings from './checkbox_settings.js';
+import * as Utils       from './utils.js';
 
-TaskTimer.prototype = {
-  __proto__: PanelMenu.Button.prototype,
+const PLUS_ICON = Gio.icon_new_for_string('list-add-symbolic');
+const HISTORY_ICON = Gio.icon_new_for_string('document-open-recent-symbolic');
+const UP_ICON = Gio.icon_new_for_string('go-up-symbolic');
+const DOWN_ICON = Gio.icon_new_for_string('go-down-symbolic');
 
-  _init : function(){
-    this.dirPath = GLib.get_home_dir() + "/.config/TaskTimer/";
-    if (! GLib.file_test(this.dirPath, GLib.FileTest.EXISTS)){
-      GLib.mkdir_with_parents(this.dirPath, 511);
-    }
-    this.saveFile = this.dirPath + "saveFile.json";
-    this._load();
-    PanelMenu.Button.prototype._init.call(this, St.Align.START);
-    this.buttonText = new St.Label({y_align: Clutter.ActorAlign.CENTER});
-    this.buttonText.text = Utils.convertTime(this.currTime) + ' / ' + Utils.convertTime(this.totalTime);
-    this.buttonText.set_style("text-align:center;");
-    this.actor.add_actor(this.buttonText);
-    this.mainBox = new St.BoxLayout();
-    this.mainBox.set_vertical(true);
-    let taskBox = new PopupMenu.PopupMenuSection('taskBox');
-    taskBox.actor.add_style_class_name("task-box");
-    taskBox.one = false;
-    taskBox._setOpenedSubMenu = function(subMenu){
-      if(taskBox.one) return;
-      taskBox.one = true;
+/* ~/.config/TaskTimer/state.json */
+const CONFIG_DIR = GLib.build_filenamev([GLib.get_user_config_dir(), 'TaskTimer']);
+const STATE_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.json']);
+const BACKUP_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.backup.json']);
+const TEMP_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.temp.json']);
 
-      for (var item of taskBox._getMenuItems()){
-        item.menu.close();
-      }
-      if (subMenu != null){
-        subMenu.open();
-      }
-      taskBox.one = false;
-    }
-    this.taskBox = taskBox;
+// Set how many tasks to display at once
+const VISIBLE_TASKS = 15;
 
-    var scrollView = new St.ScrollView({style_class: 'vfade',
-        hscrollbar_policy: Gtk.PolicyType.NEVER,
-        vscrollbar_policy: Gtk.PolicyType.AUTOMATIC});
-    scrollView.add_actor(this.taskBox.actor);
-    this.mainBox.add_actor(scrollView);
-    var separator = new PopupMenu.PopupSeparatorMenuItem();
-    this.mainBox.add_actor(separator.actor);
-    this.newTask = new St.Entry({
-      name: "newTask",
-      hint_text: _("Name..."),
-      track_hover: true,
-      can_focus: true
-    });
-    this.newTask.add_style_class_name("new-task-entry");
-    let taskText = this.newTask.clutter_text;
-    taskText.set_max_length(50);
-    taskText.connect('key-press-event', Lang.bind(this,function(o,e){
-      let symbol = e.get_key_symbol();
-      if (symbol == KEY_RETURN || symbol == KEY_ENTER) {
-        if (this.time != 0 && !isNaN(this.time)){
-            this._create_task(o.get_text());
-            taskText.set_text('');
-            this.btn_add.show();
-            this.newTaskSection.actor.hide();
-        } else {
+export default GObject.registerClass(
+class TaskTimer extends PanelMenu.Button {
 
+    _init() {
+        super._init(0.0, 'Task Timer');
+
+        try {
+            /* initialize state */
+            this._tasks = [];
+            this._taskHistory = {};
+            this._lastDate = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD format
+            this._tasksOffset = 0; // Initial offset in the tasks display
+            this._stateLoaded = false; // Track if state was loaded successfully
+            this._saveOperationInProgress = false; // Track if a save operation is in progress
+            this._pendingSave = false; // Track if a save is pending but couldn't be performed
+            this._runningBeforeLock = null; // Track which tasks were running before screen lock
+            
+            /* load saved tasks */
+            this._loadState();
+
+            /* top‑bar label */
+            this._label = new St.Label({ 
+                text: '0:00 / 0:00',
+                y_align: Clutter.ActorAlign.CENTER,
+                style_class: 'tasktimer-time-label'
+            });
+            this.add_child(this._label);
+
+            /* Add class to menu for scoped CSS */
+            this.menu.actor.add_style_class_name('tasktimer-popup');
+
+            /* Create navigation controls and task container */
+            this._createTaskSectionWithNavigation();
+            
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            this._buildNewTaskRow();
+            this._buildCheckboxRow();
+            
+            /* recreate tasks */
+            this._updateTaskDisplay();
+            this._updateIndicator();
+
+            /* autosave */
+            // More frequent autosave (now every 15 seconds)
+            this._autosaveID = GLib.timeout_add_seconds(
+                GLib.PRIORITY_LOW, 15,
+                () => { 
+                    this._saveState(); 
+                    return GLib.SOURCE_CONTINUE; 
+                });
+                
+            // Backup timer for indicator updates (not critical now with direct updates)
+            this._updateTimerID = GLib.timeout_add_seconds(
+                GLib.PRIORITY_LOW, 5,
+                () => { 
+                    this._updateIndicator(); 
+                    return GLib.SOURCE_CONTINUE; 
+                });
+            
+            // Add menu open/close handlers for better state management
+            this.menu.connect('open-state-changed', (menu, isOpen) => {
+                if (!isOpen) {
+                    // Save state when menu is closed to ensure latest changes are saved
+                    this._saveState();
+                }
+            });
+            
+            // Add system event handlers for round-up functionality
+            this._setupSystemEventHandlers();
+                
+            log("TaskTimer: Initialization complete");
+        } catch (e) {
+            log(`TaskTimer: Error during initialization: ${e.message}`);
+            
+            // Fallback to basic initialization if something went wrong
+            if (!this._label) {
+                this._label = new St.Label({ text: '0:00 / 0:00',
+                                     y_align: Clutter.ActorAlign.CENTER });
+                this.add_child(this._label);
+            }
+            
+            // Reset to empty state
+            this._tasks = [];
+            this._taskHistory = {};
+            this._lastDate = new Date().toISOString().split('T')[0];
         }
-      }
-    }));
-    this.btn_add = new St.Button({label: "", track_hover: true});
-    let icon = new St.Icon({icon_size: 30, gicon: ADD_ICON});
-    this.btn_add.add_actor(icon);
-    this.newTaskSection = new PopupMenu.PopupMenuSection();
-    this.timeHeader = new St.Button({label:_("New Task"), track_hover: true, y_align: Clutter.ActorAlign.CENTER});
-    this.timeHeader.add_style_class_name("new-task-header");
-    this.timeHeader.connect('clicked', Lang.bind(this, this._onNewTaskClose));
-    this.newTaskBox = new St.BoxLayout();
-    this.newTaskBox.set_vertical(false);
-    this.timeLabel = new St.Label({text:_("0:00"), y_align: Clutter.ActorAlign.CENTER});
-    this.timeLabel.add_style_class_name("time-label");
-    this.timeSlider = new Slider.Slider(0);
-    this.timeSlider.actor.add_style_class_name("new-task-slider");
-    this.timeSlider.connect('value-changed', Lang.bind(this, this._onSliderValueChange));
-    this.btn_enter = new St.Button({label: ""});
-    this.btn_enter.add_style_class_name("enter-button");
-    this.btn_enter.connect("clicked", Lang.bind(this, this._onEnterClicked));
-    icon = new St.Icon({icon_size: 20, gicon: ADD_ICON});
-    this.btn_enter.add_actor(icon);
-    this.newTaskBox.add_actor(this.timeLabel);
-    this.newTaskBox.add_actor(this.newTask);
-    this.newTaskBox.add_actor(this.btn_enter);
-    this.mainBox.add_actor(this.btn_add);
-    this.btn_add.connect('clicked', Lang.bind(this, this._onAddClicked));
-    this.newTaskSection.actor.add_actor(this.timeHeader);
-    this.newTaskSection.actor.add_actor(this.timeSlider.actor);
-    this.newTaskSection.actor.add_actor(this.newTaskBox);
-    this.newTaskSection.actor.add_style_class_name("new-task-box");
-    this.newTaskSection.actor.hide();
-    this.mainBox.add_actor(this.newTaskSection.actor);
-    this.menu.box.add(this.mainBox);
-    for (var id in this.listOfTasks){
-      this._add_task(this.listOfTasks[id]);
     }
-  },
 
-  _onAddClicked : function(){
-      this.btn_add.hide();
-      this.newTaskSection.actor.show();
-  },
-
-  _onNewTaskClose : function(){
-    this.btn_add.show();
-    this.newTaskSection.actor.hide();
-  },
-
-  _onEnterClicked : function(){
-      if (this.time != 0 && this.newTask.get_text() != ""){
-        this._create_task(this.newTask.get_text());
-        this.newTask.set_text("");
-        this.btn_add.show();
-        this.newTaskSection.actor.hide();
-      } else if (this.time == 0 && this.newTask.get_text() == ""){
-          Main.notify(("Please specify time and name"));
-      }
-      else if (this.time == 0){
-        Main.notify("Please specify a time");
-      } else if (this.newTask.get_text() == ""){
-        Main.notify("Please enter a name");
-      }
-  },
-
-  _onSliderValueChange : function(slider, value){
-    this.time = Math.floor(Math.floor(value*(1440-this.totalTime/60))/5)*5;
-    let hours = (Math.floor(this.time/60.0));
-    let minutes = this.time - (60*hours);
-    hours = hours.toString();
-    if (minutes < 10) minutes = "0" + minutes.toString(); else minutes = minutes.toString();
-    this.timeLabel.text = hours + ":" + minutes;
-  },
-
-  _create_task : function(text){
-    if (text == '' || text == '\n') return;
-    let id = this.next_id;
-    let color = Utils.generate_color();
-    let weekdays = {
-      "sunday": "0:00/0:00",
-      "monday": "0:00/0:00",
-      "tuesday": "0:00/0:00",
-      "wednesday": "0:00/0:00",
-      "thursday": "0:00/0:00",
-      "friday": "0:00/0:00",
-      "saturday": "0:00/0:00"
-    };
-    weekdays = Utils.updateWeeklyTimes(weekdays, (new Date).getDay(), 0, this.time*60);
-    let task = {
-      "id": id,
-      "name": text,
-      "description": "Enter description here!",
-      "time": this.time * 60,
-      "currTime": 0,
-      "lastStop": 0,
-      "color": color,
-      "running": false,
-      "dateTime": new Date(),
-      "weekdays": weekdays
-    };
-    //this.tasks[id] = task;
-    this.listOfTasks[id] = task;
-    this.next_id += 1;
-    this.totalTime += this.time*60;
-    this._save();
-    this.buttonText.text = Utils.convertTime(this.currTime) + " / " + Utils.convertTime(this.totalTime);
-    this._add_task(task);
-  },
-  _add_task : function(task){
-    let item = new TaskItem.Task(task);
-    //Main.notify("hello");
-    this.taskBox.addMenuItem(item);
-    this.timeSlider._moveHandle(0,0);
-    item.connect('delete_signal', Lang.bind(this, this._delete_task));
-    item.connect('update_signal', Lang.bind(this, this._update_task));
-    item.connect('stop_signal', Lang.bind(this, this._stop_all_but_current));
-    item.connect('settings_signal', Lang.bind(this, this._settings));
-    item.connect('closeSettings_signal', Lang.bind(this, this._closeSettings));
-    item.connect('moveUp_signal', Lang.bind(this, this._moveTaskUp));
-    item.connect('moveDown_signal', Lang.bind(this, this._moveTaskDown));
-    if (task.running){
-      item.task.running = false;
-      item._startStop();
+    /* Create task container with navigation buttons for scrolling */
+    _createTaskSectionWithNavigation() {
+        // Main container for tasks
+        const navContainer = new PopupMenu.PopupBaseMenuItem({
+            reactive: false,
+            style_class: 'tasktimer-nav-container'
+        });
+        
+        // Create a vertical layout for the entire section
+        const mainBox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'tasktimer-main-box'
+        });
+        
+        // Create top navigation button if we have more than VISIBLE_TASKS
+        this._upButton = new St.Button({
+            style_class: 'tasktimer-nav-button',
+            child: new St.Icon({ icon_name: 'go-up-symbolic' }),
+            x_expand: true,
+            can_focus: true,
+            visible: false
+        });
+        
+        // Show page indicator 
+        this._pageIndicator = new St.Label({
+            text: "1/1",
+            style_class: 'tasktimer-page-indicator',
+            x_align: Clutter.ActorAlign.CENTER,
+            x_expand: true
+        });
+        
+        // Top navigation bar
+        const topNav = new St.BoxLayout({
+            style_class: 'tasktimer-top-nav',
+            x_expand: true
+        });
+        
+        topNav.add_child(this._upButton);
+        topNav.add_child(this._pageIndicator);
+        
+        // Create the task section that will contain currently visible tasks
+        this._taskSection = new PopupMenu.PopupMenuSection();
+        
+        // Create bottom navigation button
+        this._downButton = new St.Button({
+            style_class: 'tasktimer-nav-button',
+            child: new St.Icon({ icon_name: 'go-down-symbolic' }),
+            x_expand: true,
+            can_focus: true,
+            visible: false
+        });
+        
+        // Put everything together
+        mainBox.add_child(topNav);
+        mainBox.add_child(this._taskSection.actor);
+        mainBox.add_child(this._downButton);
+        
+        navContainer.actor.add_child(mainBox);
+        this.menu.addMenuItem(navContainer);
+        
+        // Connect navigation signals
+        this._upButton.connect('clicked', () => {
+            this._scrollTasksUp();
+        });
+        
+        this._downButton.connect('clicked', () => {
+            this._scrollTasksDown();
+        });
+        
+        // Listen for task count changes
+        this.connect('destroy', () => {
+            // Clean up
+        });
     }
-  },
-
-  _settings : function(o, task){
-      for (item of this.taskBox._getMenuItems()){
-        if (item.task.id != task.id && item.settingsOpen){
-            item._openCloseSettings();
+    
+    /* Scroll tasks upward (showing previous) */
+    _scrollTasksUp() {
+        if (this._tasksOffset > 0) {
+            this._tasksOffset--;
+            this._updateTaskDisplay();
         }
-      }
-      this.btn_add.hide();
-      this.newTaskSection.actor.hide();
-      let i = 1;
-      var spentTime = 0;
-      for (var id in this.listOfTasks){
-        if (id != task.id){
-          if (this.listOfTasks[id].currTime > this.listOfTasks[id].time){
-            spentTime += this.listOfTasks[id].currTime;
-          } else {
-            spentTime += this.listOfTasks[id].time;
-          }
+    }
+    
+    /* Scroll tasks downward (showing next) */
+    _scrollTasksDown() {
+        if (this._tasksOffset < this._tasks.length - VISIBLE_TASKS) {
+            this._tasksOffset++;
+            this._updateTaskDisplay();
         }
-      }
-      //Main.notify(Utils.convertTime(spentTime));
-      for (item of this.taskBox._getMenuItems()){
-        if (item.task.id == task.id) {
-          this.taskSettings = new task_settings.TaskSettings(task, spentTime);
-          this.taskSettings.connect('update_signal', Lang.bind(this, this._update_from_settings));
-          this.taskBox.addMenuItem(this.taskSettings, i);
+    }
+    
+    /* Update which tasks are displayed based on current offset */
+    _updateTaskDisplay() {
+        try {
+            // Clear current task display
+            this._taskSection.removeAll();
+            
+            // Determine if we need navigation
+            const totalPages = Math.ceil(this._tasks.length / VISIBLE_TASKS);
+            const currentPage = Math.floor(this._tasksOffset / VISIBLE_TASKS) + 1;
+            
+            this._pageIndicator.text = `${currentPage}/${totalPages > 0 ? totalPages : 1}`;
+            
+            // Show/hide navigation buttons based on position
+            this._upButton.visible = this._tasksOffset > 0;
+            this._downButton.visible = this._tasksOffset < this._tasks.length - VISIBLE_TASKS;
+            
+            // Only display VISIBLE_TASKS number of tasks starting from offset
+            const visibleTasks = this._tasks.slice(this._tasksOffset, this._tasksOffset + VISIBLE_TASKS);
+            
+            // Display the visible tasks
+            visibleTasks.forEach(task => {
+                if (task.isCheckbox) {
+                    this._insertCheckboxRow(task, false, false);
+                } else {
+                    this._insertTaskRow(task, false, false);
+                }
+            });
+            
+        } catch (e) {
+            log(`TaskTimer: Error updating task display: ${e.message}`);
         }
-        i++;
-      }
-  },
-
-  _closeSettings : function(o, task){
-    if (this.taskSettings != null){
-      this.taskSettings.actor.disconnect('update_signal');
-      this.taskSettings.destroy();
-      this.btn_add.show();
     }
-  },
 
-  _moveTaskUp : function(o, task){
-    var i = 0;
-    for (item of this.taskBox._getMenuItems()){
-      if (item.task.id == task.id){
-        this.taskBox.moveMenuItem(this.taskSettings, i-1);
-        this.taskBox.moveMenuItem(item, i-1);
-        break;
-      }
-      i++;
-    }
-    this._updateList();
-  },
+    /* ─────────── "＋ New task …" ─────────── */
+    _buildNewTaskRow() {
+        try {
+            this._newRow = new PopupMenu.PopupSubMenuMenuItem(_('＋ New task…'), true);
+            this.menu.addMenuItem(this._newRow);
 
-  _moveTaskDown : function(o, task){
-    var i = 0;
-    for (item of this.taskBox._getMenuItems()){
-      if (item.task.id == task.id){
-        this.taskBox.moveMenuItem(item, i+2);
-        this.taskBox.moveMenuItem(this.taskSettings, i+2);
-        break;
-      }
-      i++;
-    }
-    this._updateList();
-  },
+            // Create a proper layout container with clear styling
+            const box = new St.BoxLayout({ 
+                style_class: 'tasktimer-combobox-item',
+                x_expand: true,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: 'spacing: 8px; padding: 12px;'
+            });
+            
+            // Ensure the text entry is properly sized and visible
+            this._entry = new St.Entry({ 
+                hint_text: _('Task name…'),
+                style_class: 'tasktimer-new-task-entry',
+                x_expand: true,
+                can_focus: true
+            });
+            
+            // Make sure slider has reasonable width and styling
+            this._slider = new Slider.Slider(0);
+            this._slider.actor.add_style_class_name('tasktimer-new-task-slider');
+            
+            // Add time input text field
+            this._timeEntry = new St.Entry({
+                hint_text: _('mm:ss'),
+                style_class: 'tasktimer-time-entry',
+                can_focus: true,
+                width: 80
+            });
+            
+            // Ensure the add button is visible and styled properly
+            this._addBtn = new St.Button({ 
+                child: new St.Icon({ gicon: PLUS_ICON }),
+                style_class: 'tasktimer-button'
+            });
 
-_updateList : function(){
-    let i = 0;
-    for (var id in this.listOfTasks){
-      delete this.listOfTasks[id];
-    }
-    for (item of this.taskBox._getMenuItems()){
-      if (item.isTask){
-        item.task.id = i;
-        this.listOfTasks[i] = item.task;
-        i++
-      }
-    }
-    this._save();
-  },
+            // Properly add all elements to the layout
+            box.add_child(this._entry);
+            
+            // Create a container for time input elements
+            const timeBox = new St.BoxLayout({
+                style_class: 'tasktimer-time-input-box',
+                y_align: Clutter.ActorAlign.CENTER
+            });
+            
+            timeBox.add_child(new St.Label({ text: _('Time:') }));
+            timeBox.add_child(this._slider.actor);
+            timeBox.add_child(this._timeEntry);
+            
+            box.add_child(timeBox);
+            box.add_child(this._addBtn);
+            
+            // Make sure the box is properly added to the menu
+            this._newRow.menu.box.add_child(box);
 
-  _stop_all_but_current: function(o, task){
-      for (item of this.taskBox._getMenuItems()){
-          if (item.task.running && item.task.id != task.id){
-            item._startStop();
+            /* signals */
+            this._addBtn.connect('clicked', () => this._onAdd());
+            
+            // Connect the slider to update the text field
+            this._slider.connect('notify::value', () => {
+                const m = Math.round(this._slider.value * 1440);
+                this._newRow.label.text = m ? _(`＋ New task… (${m} min)`)
+                                            : _('＋ New task…');
+                
+                // Update time entry text to match slider
+                if (!this._timeEntry.has_key_focus()) {
+                    const minutes = Math.floor(m);
+                    const seconds = 0;
+                    this._timeEntry.set_text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+                }
+            });
+            
+            // Connect time entry to update slider when text changes
+            this._timeEntry.clutter_text.connect('text-changed', () => {
+                const text = this._timeEntry.get_text();
+                const seconds = Utils.parseTimeInput(text);
+                
+                if (seconds !== null) {
+                    // Convert to slider value (between 0-1)
+                    const minutes = seconds / 60;
+                    const maxMinutes = 1440; // 24 hours
+                    const newValue = Math.min(1, minutes / maxMinutes);
+                    
+                    // Only update if significantly different to avoid loops
+                    if (Math.abs(this._slider.value - newValue) > 0.001) {
+                        this._slider.value = newValue;
+                        const displayMinutes = Math.round(minutes);
+                        this._newRow.label.text = displayMinutes ? 
+                            _(`＋ New task… (${displayMinutes} min)`) : 
+                            _('＋ New task…');
+                    }
+                }
+            });
+            
+            // Handle return/enter key press
+            this._timeEntry.clutter_text.connect('key-press-event', (_o, e) => {
+                const symbol = e.get_key_symbol();
+                if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter) {
+                    this._onAdd();
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            });
+            
+            // Handle return/enter key press in task name field
+            this._entry.clutter_text.connect('key-press-event', (_o, e) => {
+                const symbol = e.get_key_symbol();
+                if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter) {
+                    this._onAdd();
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            });
+        } catch (e) {
+            log(`TaskTimer: Error in _buildNewTaskRow: ${e.message}`);
         }
-      }
-  },
+    }
 
-  _delete_task: function(o, task){
-      this._closeSettings();
-      delete this.listOfTasks[task.id];
-      this._save();
-      this.currTime = 0;
-      this.totalTime = 0;
-      for (var id in this.listOfTasks){
-        this.currTime += this.listOfTasks[id].currTime;
-        this.totalTime += this.listOfTasks[id].time;
-      }
-      this.buttonText.text = Utils.convertTime(this.currTime) + " / " + Utils.convertTime(this.totalTime);
-  },
+    /* ─────────── "＋ New checklist…" ─────────── */
+    _buildCheckboxRow() {
+        try {
+            this._checkboxRow = new PopupMenu.PopupSubMenuMenuItem(_('＋ New checklist…'), true);
+            this.menu.addMenuItem(this._checkboxRow);
 
-  _update_task: function(o, task){
-      this.listOfTasks[task.id] = task;
-      this._save();
-      this.currTime = 0;
-      for (var id in this.listOfTasks){
-        this.currTime += this.listOfTasks[id].currTime;
-      }
-      this.buttonText.text = Utils.convertTime(this.currTime) + " / " + Utils.convertTime(this.totalTime);
-  },
+            // Create a better container with proper styling
+            const box = new St.BoxLayout({ 
+                style_class: 'tasktimer-new-task-box',
+                x_expand: true,
+                vertical: false,
+                style: 'spacing: 12px; padding: 16px; min-height: 50px;'
+            });
+            
+            // Make entry field larger and more visible
+            this._checkEntry = new St.Entry({ 
+                hint_text: _('List name…'),
+                style_class: 'tasktimer-new-task-entry',
+                x_expand: true,
+                can_focus: true,
+                style: 'min-width: 180px; margin-right: 10px;'
+            });
+            
+            // Create a container for slider and label
+            const sliderBox = new St.BoxLayout({ vertical: false });
+            const boxesLabel = new St.Label({ text: _('boxes'), style: 'margin: 0 8px;' });
+            
+            this._checkSlider = new Slider.Slider(0);
+            this._checkSlider.actor.add_style_class_name('tasktimer-new-task-slider');
+            this._checkSlider.actor.set_width(200);
+            
+            sliderBox.add_child(boxesLabel);
+            sliderBox.add_child(this._checkSlider.actor);
+            
+            // Style the add button
+            this._checkAddBtn = new St.Button({ 
+                child: new St.Icon({ gicon: PLUS_ICON }),
+                style_class: 'tasktimer-button',
+                style: 'margin-left: 10px;'
+            });
 
-  _update_from_settings: function(o, task){
-      this.listOfTasks[task.id] = task;
-      this._save();
-      for (item of this.taskBox._getMenuItems()){
-        if (item.task.id == task.id){
-          item._update(false);
+            // Add all elements to layout in correct order
+            box.add_child(this._checkEntry);
+            box.add_child(sliderBox);
+            box.add_child(this._checkAddBtn);
+            
+            this._checkboxRow.menu.box.add_child(box);
+
+            /* signals */
+            this._checkAddBtn.connect('clicked', () => this._onAddCheckbox());
+            this._checkSlider.connect('notify::value', () => {
+                const boxes = Math.round(this._checkSlider.value * 10) + 1;
+                this._checkboxRow.label.text = boxes ? _(`＋ New checklist… (${boxes} boxes)`)
+                                                : _('＋ New checklist…');
+            });
+            
+            // Handle return/enter key press in checklist name field
+            this._checkEntry.clutter_text.connect('key-press-event', (_o, e) => {
+                const symbol = e.get_key_symbol();
+                if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter) {
+                    this._onAddCheckbox();
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            });
+        } catch (e) {
+            log(`TaskTimer: Error in _buildCheckboxRow: ${e.message}`);
         }
-      }
-      this.currTime = 0;
-      for (var id in this.listOfTasks){
-        this.currTime += this.listOfTasks[id].currTime;
-      }
-      this.buttonText.text = Utils.convertTime(this.currTime) + " / " + Utils.convertTime(this.totalTime);
-  },
+    }
 
-  _save: function(){
-    let file = Gio.file_new_for_path(this.saveFile);
-    let out = file.replace(null, false, Gio.FileCreateFlags.NONE, null);
-    Shell.write_string_to_stream(out, JSON.stringify(this.listOfTasks));
-    out.close(null);
-  },
+    _onAdd() {
+        try {
+            const name = this._entry.get_text().trim();
+            
+            // Get time from time entry if it has text, otherwise use slider
+            let seconds;
+            const timeText = this._timeEntry.get_text().trim();
+            if (timeText) {
+                seconds = Utils.parseTimeInput(timeText);
+                if (seconds === null) {
+                    // If time entry has invalid format, use slider
+                    seconds = Math.round(this._slider.value * 1440) * 60;
+                }
+            } else {
+                // Use slider value
+                seconds = Math.round(this._slider.value * 1440) * 60;
+            }
+            
+            const mins = Math.round(seconds / 60);
+            if (!name || !mins) return this._flashRow();
+    
+            /* reset UI */
+            this._entry.set_text('');
+            this._slider.value = 0;
+            this._timeEntry.set_text('');
+            this._newRow.label.text = _('＋ New task…');
+    
+            // Get current day for weekdays initialization
+            const today = new Date();
+            const dayIndex = today.getDay();
+            const dayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const dayKey = dayMap[dayIndex];
+            
+            // Initialize weekdays with all days at 0:00 except today
+            const weekdays = {
+                sunday: '0:00/0:00/0:00',
+                monday: '0:00/0:00/0:00',
+                tuesday: '0:00/0:00/0:00',
+                wednesday: '0:00/0:00/0:00',
+                thursday: '0:00/0:00/0:00',
+                friday: '0:00/0:00/0:00',
+                saturday: '0:00/0:00/0:00'
+            };
+            
+            // Set planned time for today
+            weekdays[dayKey] = `0:00/${Utils.convertTime(seconds)}/0:00`;
+    
+            const task = {
+                name, 
+                planned: seconds, 
+                currTime: 0, 
+                lastStop: 0,
+                color: Utils.generateColor(), 
+                running: false,
+                weekdays: weekdays,
+                description: _('Enter description here!'),
+                createdOn: this._lastDate, // Store creation date
+                id: `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`, // Unique ID
+                roundUpMinutes: 0, // Round-up setting in minutes (0 = disabled)
+                link: '' // URL link for the task
+            };
+            
+            // Add to the beginning of the tasks array
+            this._tasks.unshift(task);
+            
+            // Update display and save changes
+            this._tasksOffset = 0; // Reset to the top to show the new task
+            this._updateTaskDisplay();
+            this._updateIndicator();
+            this._saveState();
+            
+        } catch (e) {
+            log(`TaskTimer: Error in _onAdd: ${e.message}`);
+        }
+    }
 
-  _load: function(){
-      if(!GLib.file_test(this.saveFile, GLib.FileTest.EXISTS))
-          GLib.file_set_contents(this.saveFile, "{}");
+    _onAddCheckbox() {
+        try {
+            const name = this._checkEntry.get_text().trim();
+            const boxes = Math.round(this._checkSlider.value * 10) + 1; // 1-11 boxes
+            if (!name) return this._flashCheckboxRow();
 
-      let content = Shell.get_file_contents_utf8_sync(this.saveFile);
-      this.listOfTasks = JSON.parse(content);
+            /* reset UI */
+            this._checkEntry.set_text('');
+            this._checkSlider.value = 0;
+            this._checkboxRow.label.text = _('＋ New checklist…');
 
-      this.next_id = 0;
-      this.totalTime = 0;
-      this.currTime = 0;
-      for (var id in this.listOfTasks){
-        this.next_id = Math.max(this.next_id, id);
-        if (Utils.isSameDay(new Date(this.listOfTasks[id].dateTime))){
-            if (this.listOfTasks[id].running){
-              let elapsedTime = Utils.elapsedTimeInSeconds(new Date(this.listOfTasks[id].dateTime));
-              this.listOfTasks[id].currTime += elapsedTime;
-          }
-        } else {
-            this.listOfTasks[id].currTime = 0;
-            this.listOfTasks[id].running = false;
-            this.listOfTasks[id].lastStop = 0;
-            if (Utils.isNewWeek(new Date(this.listOfTasks[id].dateTime))){
-              this.listOfTasks[id].weekdays = {
-                "sunday": "0:00/0:00",
-                "monday": "0:00/0:00",
-                "tuesday": "0:00/0:00",
-                "wednesday": "0:00/0:00",
-                "thursday": "0:00/0:00",
-                "friday": "0:00/0:00",
-                "saturday": "0:00/0:00"
-              };
+            const task = {
+                name, 
+                isCheckbox: true,
+                checkCount: boxes,
+                checked: Array(boxes).fill(false),
+                color: Utils.generateColor(),
+                description: _('Enter description here!'),
+                createdOn: this._lastDate, // Store creation date
+                id: `checkbox_${Date.now()}_${Math.floor(Math.random() * 10000)}`, // Unique ID
+                link: '' // URL link for the task
+            };
+            
+            // Add to the beginning of the tasks array
+            this._tasks.unshift(task);
+            
+            // Update display and save changes
+            this._tasksOffset = 0; // Reset to the top to show the new checkbox
+            this._updateTaskDisplay();
+            this._saveState();
+            
+        } catch (e) {
+            log(`TaskTimer: Error in _onAddCheckbox: ${e.message}`);
+        }
+    }
+
+    _flashRow() {
+        try {
+            this._newRow.label.set_style('color:#f55');
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 700,
+                () => { this._newRow.label.set_style(''); return GLib.SOURCE_REMOVE; });
+        } catch (e) {
+            log(`TaskTimer: Error in _flashRow: ${e.message}`);
+        }
+    }
+
+    _flashCheckboxRow() {
+        try {
+            this._checkboxRow.label.set_style('color:#f55');
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 700,
+                () => { this._checkboxRow.label.set_style(''); return GLib.SOURCE_REMOVE; });
+        } catch (e) {
+            log(`TaskTimer: Error in _flashCheckboxRow: ${e.message}`);
+        }
+    }
+
+    /* ─────────── task rows ─────────── */
+    _insertTaskRow(task, save, updateDisplay = true) {
+        try {
+            // Pass this (the TaskTimer) as the parent
+            const row = new TaskItem(task, this);
+
+            // Make absolutely sure these connections work
+            row.connect('delete_signal', () => {
+                log("TaskTimer: Delete signal received");
+                this._deleteTask(row);
+            });
+            row.connect('moveUp_signal', () => {
+                log("TaskTimer: MoveUp signal received");
+                this._moveRow(row, -1);
+            });
+            row.connect('moveDown_signal', () => {
+                log("TaskTimer: MoveDown signal received");
+                this._moveRow(row, 1);
+            });
+            row.connect('update_signal', () => {
+                log("TaskTimer: Update signal received");
+                this._updateIndicator();
+                this._saveState(); // Save state when task is updated
+            });
+            row.connect('settings_signal', () => {
+                log("TaskTimer: Settings signal received");
+                this._openSettings(row);
+            });
+            row.connect('closeSettings_signal', () => {
+                log("TaskTimer: Close settings signal received");
+                this._closeSettings(row);
+            });
+
+            this._taskSection.addMenuItem(row);
+            
+            if (save) { 
+                this._updateIndicator(); 
+                this._saveState(); 
+                
+                if (updateDisplay) {
+                    this._updateTaskDisplay();
+                }
+            }
+        } catch (e) {
+            log(`TaskTimer: Error in _insertTaskRow: ${e.message}`);
+        }
+    }
+
+    _insertCheckboxRow(task, save, updateDisplay = true) {
+        try {
+            const row = new CheckboxItem(task, this);
+
+            row.connect('delete_signal', () => {
+                log("TaskTimer: Delete checkbox item clicked");
+                this._deleteTask(row);
+            });
+            row.connect('moveUp_signal', () => {
+                log("TaskTimer: Up checkbox item clicked");
+                this._moveRow(row, -1);
+            });
+            row.connect('moveDown_signal', () => {
+                log("TaskTimer: Down checkbox item clicked");
+                this._moveRow(row, 1);
+            });
+            row.connect('update_signal', () => {
+                this._saveState();
+            });
+            // Add settings signal handlers
+            row.connect('settings_signal', () => {
+                log("TaskTimer: Checkbox settings signal received");
+                this._openCheckboxSettings(row);
+            });
+            row.connect('closeSettings_signal', () => {
+                log("TaskTimer: Close checkbox settings signal received");
+                this._closeSettings(row);
+            });
+
+            this._taskSection.addMenuItem(row);
+            
+            if (save) { 
+                this._saveState(); 
+                
+                if (updateDisplay) {
+                    this._updateTaskDisplay();
+                }
+            }
+        } catch (e) {
+            log(`TaskTimer: Error in _insertCheckboxRow: ${e.message}`);
+        }
+    }
+
+    _deleteTask(row) {
+        try {
+            if (row._settingsRow) row._settingsRow.destroy();
+            row.destroy();
+            
+            // Find and remove task
+            const index = this._tasks.indexOf(row.task);
+            if (index !== -1) {
+                this._tasks.splice(index, 1);
+            }
+            
+            // Adjust offset if necessary to prevent empty display
+            if (this._tasksOffset >= this._tasks.length) {
+                this._tasksOffset = Math.max(0, this._tasks.length - VISIBLE_TASKS);
+            }
+            
+            // Update display
+            this._updateTaskDisplay();
+            this._updateIndicator();
+            this._saveState();
+        } catch (e) {
+            log(`TaskTimer: Error in _deleteTask: ${e.message}`);
+        }
+    }
+
+    _moveRow(row, dir) {
+        try {
+            // Find the index of the task in the array
+            const taskIndex = this._tasks.indexOf(row.task);
+            if (taskIndex === -1) return;
+            
+            // Calculate the target index
+            const targetIndex = taskIndex + dir;
+            
+            // Check if target is valid
+            if (targetIndex < 0 || targetIndex >= this._tasks.length) return;
+            
+            // Move the task in the array
+            const [task] = this._tasks.splice(taskIndex, 1);
+            this._tasks.splice(targetIndex, 0, task);
+            
+            // Adjust offset if necessary
+            if (this._tasksOffset > 0 && taskIndex < this._tasksOffset && targetIndex >= this._tasksOffset) {
+                // Task moved out of view downward
+                this._tasksOffset++;
+            } else if (this._tasksOffset > 0 && taskIndex >= this._tasksOffset && targetIndex < this._tasksOffset) {
+                // Task moved out of view upward
+                this._tasksOffset--;
+            }
+            
+            // Update display and save
+            this._updateTaskDisplay();
+            this._saveState();
+        } catch (e) {
+            log(`TaskTimer: Error in _moveRow: ${e.message}`);
+        }
+    }
+
+    /* ─────────── per‑task settings ─────────── */
+    _openSettings(row) {
+        try {
+            log("TaskTimer: Opening settings for " + row.task.name);
+            
+            /* close any other open settings pane */
+            this._taskSection._getMenuItems().forEach(item => {
+                if (item !== row && item._settingsRow) {
+                    item._settingsRow.destroy();
+                    item._settingsRow = null;
+                    if (item.settingsOpen) item.settingsOpen = false;
+                }
+            });
+
+            const settings = new TaskSettings(row.task, row.task.currTime);
+            settings.connect('update_signal', () => {
+                log("TaskTimer: Settings update signal received");
+                this._updateIndicator();
+                row._refreshBg(); // Make sure to update bg color if changed
+                row._updateTimeLabel(); // Add this line to update the time display
+                if (row._updateNameDisplay) row._updateNameDisplay(); // Update name display for link changes
+                this._saveState(); // Save when settings are updated
+
+                // Refresh the entire task display to properly update name clickability
+                this._updateTaskDisplay();
+            });
+            
+            const idx = this._taskSection._getMenuItems().indexOf(row);
+            if (idx !== -1) {
+                this._taskSection.addMenuItem(settings, idx + 1);
+                row._settingsRow = settings;
+            }
+        } catch (e) {
+            log(`TaskTimer: Error in _openSettings: ${e.message}`);
+        }
+    }
+    
+    _openCheckboxSettings(row) {
+        try {
+            log("TaskTimer: Opening checkbox settings for " + row.task.name);
+            
+            /* close any other open settings pane */
+            this._taskSection._getMenuItems().forEach(item => {
+                if (item !== row && item._settingsRow) {
+                    item._settingsRow.destroy();
+                    item._settingsRow = null;
+                    if (item.settingsOpen) item.settingsOpen = false;
+                }
+            });
+
+            // Create a simpler settings panel for checkboxes (no time settings)
+            const settings = new CheckboxSettings(row.task);
+            settings.connect('update_signal', () => {
+                log("TaskTimer: Checkbox settings update signal received");
+                row.set_style(`background-color:${row.task.color};`); // Update bg color if changed
+                // Update name display for checkbox items (need to add this method)
+                if (row._updateNameDisplay) row._updateNameDisplay();
+                this._saveState(); // Save when settings are updated
+
+                // Refresh the entire task display to properly update name clickability
+                this._updateTaskDisplay();
+            });
+
+            const idx = this._taskSection._getMenuItems().indexOf(row);
+            if (idx !== -1) {
+                this._taskSection.addMenuItem(settings, idx + 1);
+                row._settingsRow = settings;
+            }
+        } catch (e) {
+            log(`TaskTimer: Error in _openCheckboxSettings: ${e.message}`);
+        }
+    }
+    
+    _closeSettings(row) {
+        try {
+            if (row._settingsRow) { 
+                row._settingsRow.destroy(); 
+                row._settingsRow = null; 
+                
+                // Save state when settings are closed
+                this._saveState();
+            }
+        } catch (e) {
+            log(`TaskTimer: Error in _closeSettings: ${e.message}`);
+        }
+    }
+
+    /* ─────────── indicator ─────────── */
+    _updateIndicator() {
+        try {
+            let spent = 0, planned = 0;
+            this._tasks.forEach(t => { 
+                // Skip checkbox items in the indicator
+                if (!t.isCheckbox) {
+                    spent += t.currTime; 
+                    planned += t.planned;
+                }
+            });
+            this._label.text = `${Utils.mmss(spent)} / ${Utils.mmss(planned)}`;
+        } catch (e) {
+            log(`TaskTimer: Error in _updateIndicator: ${e.message}`);
+            // Fallback to a default value
+            this._label.text = '0:00 / 0:00';
+        }
+    }
+    
+    // Direct update method that TaskItems can call
+    forceUpdateNow() {
+        try {
+            let spent = 0, planned = 0;
+            this._tasks.forEach(t => { 
+                // Skip checkbox items in the indicator
+                if (!t.isCheckbox) {
+                    spent += t.currTime; 
+                    planned += t.planned;
+                }
+            });
+            this._label.text = `${Utils.mmss(spent)} / ${Utils.mmss(planned)}`;
+            return true;
+        } catch (e) {
+            log(`TaskTimer: Error in forceUpdateNow: ${e.message}`);
+            return false;
+        }
+    }
+
+    /* ─────────── persistence ─────────── */
+    _ensureDir() {
+        try {
+            if (!GLib.file_test(CONFIG_DIR, GLib.FileTest.IS_DIR))
+                GLib.mkdir_with_parents(CONFIG_DIR, 0o700);
+            return true;
+        } catch (e) {
+            log(`TaskTimer: Error creating directory: ${e.message}`);
+            return false;
+        }
+    }
+    
+    /**
+     * Improved _saveState method - Now uses atomic save pattern 
+     * to prevent data corruption during logout or crashes
+     */
+    _saveState() {
+        // Skip if save is already in progress
+        if (this._saveOperationInProgress) {
+            this._pendingSave = true;
+            log("TaskTimer: Save operation already in progress, marking as pending");
+            return;
+        }
+        
+        try {
+            this._saveOperationInProgress = true;
+            
+            if (!this._ensureDir()) {
+                this._saveOperationInProgress = false;
+                return;
+            }
+            
+            // First, create a backup of the current state if it exists
+            if (GLib.file_test(STATE_FILE, GLib.FileTest.EXISTS)) {
+                try {
+                    const [ok, contents] = GLib.file_get_contents(STATE_FILE);
+                    if (ok) {
+                        // Only backup if we can read the current file
+                        GLib.file_set_contents(BACKUP_FILE, contents);
+                    }
+                } catch (backupError) {
+                    log(`TaskTimer: Error creating backup: ${backupError.message}`);
+                    // Continue even if backup fails
+                }
+            }
+            
+            // Create the data structure with dates and add version info
+            const saveData = {
+                version: 2, // Version indicator 
+                lastDate: this._lastDate,
+                tasks: this._tasks,
+                taskHistory: this._taskHistory || {},
+                saveTime: Date.now() // Add timestamp
+            };
+            
+            const jsonContent = JSON.stringify(saveData, null, 2); // Pretty print for better debugging
+            
+            // First write to a temporary file
+            GLib.file_set_contents(TEMP_FILE, jsonContent);
+            
+            // Then atomically replace the real file with the temp file
+            // This helps prevent corruption if the system crashes during write
+            const tempFile = Gio.File.new_for_path(TEMP_FILE);
+            const stateFile = Gio.File.new_for_path(STATE_FILE);
+            
+            try {
+                // Use Gio for atomic move operation
+                tempFile.move(stateFile, 
+                    Gio.FileCopyFlags.OVERWRITE | Gio.FileCopyFlags.ALL_METADATA, 
+                    null, null);
+                    
+                log("TaskTimer: State saved successfully");
+            } catch (moveError) {
+                // If atomic move fails, try fallback method
+                log(`TaskTimer: Atomic move failed: ${moveError.message}, trying fallback`);
+                
+                // Direct write as fallback
+                try {
+                    GLib.file_set_contents(STATE_FILE, jsonContent);
+                    log("TaskTimer: State saved with fallback method");
+                } catch (e) {
+                    log(`TaskTimer: Fallback save failed: ${e.message}`);
+                    throw e; // Re-throw to handle in outer catch
+                }
+            }
+            
+            this._saveOperationInProgress = false;
+            
+            // If there was a pending save request, process it now
+            if (this._pendingSave) {
+                this._pendingSave = false;
+                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+                    this._saveState();
+                    return GLib.SOURCE_REMOVE;
+                });
             }
         }
-        this.totalTime += this.listOfTasks[id].time;
-        this.currTime += this.listOfTasks[id].currTime;
-      }
-      this.next_id++;
-
-
-  },
-
-  disable: function(){
-    for (var task of this.taskBox._getMenuItems()){
-        task.actor.disconnect('delete_signal');
-        task.actor.disconnect('update_signal');
-        task.actor.disconnect('stop_signal');
-        task.actor.disconnect('settings_signal');
-        task.actor.disconnect('moveUp_signal');
-        task.actor.disconnect('moveDown_signal');
-        task.destroy();
+        catch (e) { 
+            log(`TaskTimer: Save failed – ${e.message}`); 
+            this._saveOperationInProgress = false;
+        }
     }
-    this.taskBox.removeAll();
-  }
-}
+    
+    /**
+     * Improved state loading with better error recovery and fallbacks
+     */
+    _loadState() {
+        try {
+            if (!this._ensureDir()) return;
+            
+            // Check if main state file exists
+            const mainFileExists = GLib.file_test(STATE_FILE, GLib.FileTest.EXISTS);
+            const backupFileExists = GLib.file_test(BACKUP_FILE, GLib.FileTest.EXISTS);
+            
+            if (!mainFileExists && !backupFileExists) {
+                log("TaskTimer: No state file exists yet");
+                return;
+            }
+            
+            // Try to load the main file first
+            let data = null;
+            let loadedFromBackup = false;
+            
+            if (mainFileExists) {
+                try {
+                    const [ok, bytes] = GLib.file_get_contents(STATE_FILE);
+                    if (ok) {
+                        const content = imports.byteArray.toString(bytes);
+                        data = JSON.parse(content);
+                        log("TaskTimer: Successfully loaded state from main file");
+                    }
+                } catch (mainError) {
+                    log(`TaskTimer: Failed to load from main file: ${mainError.message}`);
+                    // Main file failed, try backup
+                    if (backupFileExists) {
+                        try {
+                            const [ok, bytes] = GLib.file_get_contents(BACKUP_FILE);
+                            if (ok) {
+                                const content = imports.byteArray.toString(bytes);
+                                data = JSON.parse(content);
+                                loadedFromBackup = true;
+                                log("TaskTimer: Successfully loaded state from backup file");
+                            }
+                        } catch (backupError) {
+                            log(`TaskTimer: Failed to load from backup file: ${backupError.message}`);
+                            
+                            // Both files failed, create a recovery backup and initialize empty
+                            this._backupCorruptedFile();
+                            return;
+                        }
+                    } else {
+                        // Only main file exists but it's corrupted
+                        this._backupCorruptedFile();
+                        return;
+                    }
+                }
+            } else if (backupFileExists) {
+                // Only backup exists
+                try {
+                    const [ok, bytes] = GLib.file_get_contents(BACKUP_FILE);
+                    if (ok) {
+                        const content = imports.byteArray.toString(bytes);
+                        data = JSON.parse(content);
+                        loadedFromBackup = true;
+                        log("TaskTimer: Successfully loaded state from backup file (main file missing)");
+                    }
+                } catch (backupError) {
+                    log(`TaskTimer: Failed to load from backup file: ${backupError.message}`);
+                    return;
+                }
+            }
+            
+            // If we loaded from backup, restore it as the main file
+            if (loadedFromBackup) {
+                try {
+                    // Write the loaded backup back to the main file
+                    GLib.file_set_contents(STATE_FILE, JSON.stringify(data, null, 2));
+                    log("TaskTimer: Restored main file from backup");
+                } catch (restoreError) {
+                    log(`TaskTimer: Failed to restore main file: ${restoreError.message}`);
+                }
+            }
+            
+            // Process the loaded data
+            if (!data || typeof data !== 'object') {
+                log("TaskTimer: Invalid data structure in state file");
+                this._tasks = [];
+                this._taskHistory = {};
+                this._lastDate = new Date().toISOString().split('T')[0];
+                return;
+            }
+            
+            // Handle version differences
+            const dataVersion = data.version || 1; // Default to version 1 if not specified
+            
+            // Store historical data separately (if it exists)
+            if (data.taskHistory && typeof data.taskHistory === 'object') {
+                this._taskHistory = data.taskHistory;
+            } else {
+                this._taskHistory = {};
+            }
+            
+            // Get today's date
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            
+            // Check if data has lastDate property and it's valid
+            if (data.lastDate && typeof data.lastDate === 'string' && data.tasks && Array.isArray(data.tasks)) {
+                if (data.lastDate === today) {
+                    // Use today's data
+                    this._tasks = data.tasks;
+                    this._lastDate = today;
+                    log(`TaskTimer: Loaded current day's data (${today})`);
+
+                    // Ensure each task has an ID (for older data format) and link property
+                    if (dataVersion === 1) {
+                        this._tasks = this._tasks.map(task => {
+                            if (!task.id) {
+                                task.id = `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                            }
+                            if (task.link === undefined) {
+                                task.link = '';
+                            }
+                            return task;
+                        });
+                    } else {
+                        // For all versions, ensure backward compatibility with link field
+                        this._tasks = this._tasks.map(task => {
+                            if (task.link === undefined) {
+                                task.link = '';
+                            }
+                            return task;
+                        });
+                    }
+                } else {
+                    // New day - initialize with zero values but preserve names/structures
+                    this._lastDate = today;
+                    
+                    log(`TaskTimer: New day detected! Storing previous day (${data.lastDate}) in history`);
+                    // Store previous day's data in history
+                    this._taskHistory[data.lastDate] = data.tasks;
+                    // Initialize new day based on previous tasks
+                    this._tasks = this._initializeNewDay(data.tasks);
+                    
+                    // Save the state after initializing the new day
+                    this._saveState();
+                }
+            } else {
+                // Handle old format or invalid data
+                log("TaskTimer: Using fallback data loading (old format or invalid data)");
+                if (Array.isArray(data)) {
+                    // Old format - array of tasks
+                    this._tasks = data;
+                } else if (data.tasks && Array.isArray(data.tasks)) {
+                    // Has tasks array but invalid lastDate
+                    this._tasks = data.tasks;
+                } else {
+                    // Invalid format, start fresh
+                    this._tasks = [];
+                }
+                this._lastDate = today;
+                
+                // Ensure all tasks have IDs and link property
+                this._tasks = this._tasks.map(task => {
+                    if (!task.id) {
+                        task.id = `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                    }
+                    if (task.link === undefined) {
+                        task.link = '';
+                    }
+                    return task;
+                });
+            }
+            
+            // Ensure all tasks have roundUpMinutes property (for backward compatibility)
+            this._tasks = this._tasks.map(task => {
+                if (task.roundUpMinutes === undefined) {
+                    task.roundUpMinutes = 0;
+                }
+                return task;
+            });
+            
+            // Mark state as successfully loaded
+            this._stateLoaded = true;
+            
+        } catch (e) { 
+            log(`TaskTimer: Load failed – ${e.message}`); 
+            // Reset to default values
+            this._tasks = [];
+            this._taskHistory = {};
+            this._lastDate = new Date().toISOString().split('T')[0];
+        }
+    }
+    
+    // Backup corrupted state file
+    _backupCorruptedFile() {
+        try {
+            // Create a timestamped backup name
+            const backupFile = `${STATE_FILE}.corrupted-${Date.now()}`;
+            log(`TaskTimer: Backing up corrupted state file to ${backupFile}`);
+            
+            // Try to read the main file first
+            try {
+                const [ok, bytes] = GLib.file_get_contents(STATE_FILE);
+                if (ok) {
+                    GLib.file_set_contents(backupFile, bytes);
+                    log("TaskTimer: Successfully backed up corrupted main file");
+                }
+            } catch (mainError) {
+                log(`TaskTimer: Failed to backup main file: ${mainError.message}`);
+            }
+            
+            // Try to backup the backup file if it exists
+            if (GLib.file_test(BACKUP_FILE, GLib.FileTest.EXISTS)) {
+                try {
+                    const backupOfBackup = `${BACKUP_FILE}.corrupted-${Date.now()}`;
+                    const [ok, bytes] = GLib.file_get_contents(BACKUP_FILE);
+                    if (ok) {
+                        GLib.file_set_contents(backupOfBackup, bytes);
+                        log("TaskTimer: Successfully backed up corrupted backup file");
+                    }
+                } catch (backupError) {
+                    log(`TaskTimer: Failed to backup the backup file: ${backupError.message}`);
+                }
+            }
+        } catch (e) {
+            log(`TaskTimer: Failed to create corrupted file backup: ${e.message}`);
+        }
+    }
+    
+    // Initialize a new day with zeroed values
+    _initializeNewDay(previousTasks) {
+        try {
+            log("TaskTimer: Initializing new day with reset values");
+            return previousTasks.map(task => {
+                // Skip invalid tasks
+                if (!task || typeof task !== 'object') {
+                    return null;
+                }
+                
+                // Make a deep copy of the task to avoid modifying the original
+                const newTask = JSON.parse(JSON.stringify(task));
+                
+                // Ensure task has an ID
+                if (!newTask.id) {
+                    newTask.id = `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                }
+                
+                // Ensure task has roundUpMinutes property
+                if (newTask.roundUpMinutes === undefined) {
+                    newTask.roundUpMinutes = 0;
+                }
+
+                // Ensure task has link property
+                if (newTask.link === undefined) {
+                    newTask.link = '';
+                }
+                
+                if (task.isCheckbox) {
+                    // Reset checkbox values
+                    newTask.checked = Array(task.checkCount || 0).fill(false);
+                    log(`TaskTimer: Reset checkboxes for "${task.name}"`);
+                } else {
+                    // Reset timer values but keep planned time
+                    newTask.currTime = 0;
+                    newTask.lastStop = 0;
+                    newTask.running = false;
+                    
+                    // Make sure weekdays exists
+                    if (!newTask.weekdays || typeof newTask.weekdays !== 'object') {
+                        newTask.weekdays = {
+                            sunday: '0:00/0:00/0:00',
+                            monday: '0:00/0:00/0:00',
+                            tuesday: '0:00/0:00/0:00',
+                            wednesday: '0:00/0:00/0:00',
+                            thursday: '0:00/0:00/0:00',
+                            friday: '0:00/0:00/0:00',
+                            saturday: '0:00/0:00/0:00'
+                        };
+                    }
+                    
+                    // Reset current day in weekdays
+                    const dayIndex = new Date().getDay();
+                    const dayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                    const today = dayMap[dayIndex];
+                    
+                    // Format: "current/planned/lastStop"
+                    // Preserve the planned time from previous day
+                    const plannedTime = Utils.convertTime(newTask.planned || 0);
+                    newTask.weekdays[today] = `0:00/${plannedTime}/0:00`;
+                    
+                    log(`TaskTimer: Reset timer for "${task.name}", planned: ${plannedTime}`);
+                }
+                
+                return newTask;
+            }).filter(task => task !== null); // Remove any null tasks
+        } catch (e) {
+            log(`TaskTimer: Error in _initializeNewDay: ${e.message}`);
+            return []; // Return empty array on error
+        }
+    }
+
+    /* ─────────── System Event Handlers ─────────── */
+    _setupSystemEventHandlers() {
+        try {
+            // Import the required modules for system event handling
+            import('resource:///org/gnome/shell/ui/main.js').then(Main => {
+                const screenShield = Main.screenShield;
+                
+                // Set up screen lock handler
+                if (screenShield) {
+                    this._screenLockSignalId = screenShield.connect('locked-changed', () => {
+                        if (screenShield.locked) {
+                            log("TaskTimer: Screen locked, stopping timers with round-up");
+                            this._handleSystemEvent('lock');
+                        } else {
+                            log("TaskTimer: Screen unlocked, resuming timers");
+                            this._handleSystemEvent('unlock');
+                        }
+                    });
+                }
+                
+                log("TaskTimer: Screen lock handler set up successfully");
+            }).catch(e => {
+                log(`TaskTimer: Error setting up screen lock handler: ${e.message}`);
+            });
+            
+            // Set up session manager for logout detection
+            import('resource:///org/gnome/shell/misc/gnomeSession.js').then(SessionManager => {
+                if (SessionManager) {
+                    const sessionManager = new SessionManager.SessionManager();
+                    this._logoutSignalId = sessionManager.connect('PresenceChanged', (proxy, senderName, [status]) => {
+                        if (status === 3) { // Session ending
+                            log("TaskTimer: Session ending, stopping timers with round-up");
+                            this._handleSystemEvent('logout');
+                        }
+                    });
+                }
+                
+                log("TaskTimer: Session manager handler set up successfully");
+            }).catch(e => {
+                log(`TaskTimer: Error setting up session manager handler: ${e.message}`);
+            });
+            
+            log("TaskTimer: System event handlers initialization started");
+        } catch (e) {
+            log(`TaskTimer: Error setting up system event handlers: ${e.message}`);
+        }
+    }
+    
+    _handleSystemEvent(eventType) {
+        log(`TaskTimer: Handling system event: ${eventType}`);
+        
+        if (eventType === 'lock') {
+            // Store which tasks were running before lock
+            this._runningBeforeLock = [];
+            
+            // Stop all running timers and apply round-up if configured
+            this._tasks.forEach(task => {
+                if (task.running && !task.isCheckbox) {
+                    log(`TaskTimer: Stopping timer for "${task.name}" due to ${eventType}`);
+                    
+                    // Store task ID so we can resume it later
+                    this._runningBeforeLock.push(task.id);
+                    
+                    // Stop the timer
+                    task.running = false;
+                    
+                    // Apply round-up if configured
+                    if (task.roundUpMinutes && task.roundUpMinutes > 0) {
+                        const roundUpSeconds = task.roundUpMinutes * 60;
+                        const roundedTime = this._roundUpTime(task.currTime, roundUpSeconds);
+                        
+                        log(`TaskTimer: Rounding up "${task.name}" from ${Utils.mmss(task.currTime)} to ${Utils.mmss(roundedTime)}`);
+                        task.currTime = roundedTime;
+                    }
+                    
+                    task.lastStop = task.currTime;
+                }
+            });
+        } else if (eventType === 'unlock') {
+            // Resume timers that were running before lock
+            if (this._runningBeforeLock) {
+                this._tasks.forEach(task => {
+                    if (this._runningBeforeLock.includes(task.id)) {
+                        log(`TaskTimer: Resuming timer for "${task.name}"`);
+                        task.running = true;
+                    }
+                });
+                this._runningBeforeLock = null;
+            }
+        } else if (eventType === 'logout') {
+            // Stop all running timers and apply round-up (no resume for logout)
+            this._tasks.forEach(task => {
+                if (task.running && !task.isCheckbox) {
+                    log(`TaskTimer: Stopping timer for "${task.name}" due to ${eventType}`);
+                    
+                    // Stop the timer
+                    task.running = false;
+                    
+                    // Apply round-up if configured
+                    if (task.roundUpMinutes && task.roundUpMinutes > 0) {
+                        const roundUpSeconds = task.roundUpMinutes * 60;
+                        const roundedTime = this._roundUpTime(task.currTime, roundUpSeconds);
+                        
+                        log(`TaskTimer: Rounding up "${task.name}" from ${Utils.mmss(task.currTime)} to ${Utils.mmss(roundedTime)}`);
+                        task.currTime = roundedTime;
+                    }
+                    
+                    task.lastStop = task.currTime;
+                }
+            });
+        }
+        
+        // Update the display and save state
+        this._updateTaskDisplay();
+        this._updateIndicator();
+        this._saveState();
+    }
+    
+    _roundUpTime(currentTime, roundUpSeconds) {
+        if (roundUpSeconds <= 0) return currentTime;
+        
+        // Round up to the next multiple of roundUpSeconds
+        const remainder = currentTime % roundUpSeconds;
+        if (remainder === 0) {
+            return currentTime; // Already at a round number
+        }
+        
+        return currentTime + (roundUpSeconds - remainder);
+    }
+
+    /* ─────────── cleanup ─────────── */
+    disable() {
+        try {
+            log("TaskTimer: Extension being disabled");
+            
+            // Clean up system event handlers
+            if (this._screenLockSignalId) {
+                try {
+                    import('resource:///org/gnome/shell/ui/main.js').then(Main => {
+                        if (Main.screenShield) {
+                            Main.screenShield.disconnect(this._screenLockSignalId);
+                        }
+                    }).catch(e => {
+                        log(`TaskTimer: Error disconnecting screen lock signal: ${e.message}`);
+                    });
+                } catch (e) {
+                    log(`TaskTimer: Error disconnecting screen lock signal: ${e.message}`);
+                }
+                this._screenLockSignalId = null;
+            }
+            
+            if (this._logoutSignalId) {
+                try {
+                    // Session manager cleanup would go here if needed
+                    log("TaskTimer: Cleaned up session manager signal");
+                } catch (e) {
+                    log(`TaskTimer: Error disconnecting logout signal: ${e.message}`);
+                }
+                this._logoutSignalId = null;
+            }
+            
+            // Perform final save immediately
+            if (this._autosaveID) {
+                GLib.source_remove(this._autosaveID);
+                this._autosaveID = 0;
+            }
+            
+            if (this._updateTimerID) {
+                GLib.source_remove(this._updateTimerID);
+                this._updateTimerID = 0;
+            }
+            
+            // Make sure we save all data
+            try {
+                // Force a synchronous save operation when disabling
+                this._saveState();
+                
+                // Wait a short time to ensure save completes
+                // This is a workaround because we can't use async methods properly in disable()
+                // The timeout gives a little breathing room for the save operation to finish
+                // before GNOME Shell fully unloads the extension
+                GLib.usleep(100000); // 100ms
+                
+                // Perform a second save attempt to be extra certain
+                this._saveState();
+                
+                log("TaskTimer: Final state save completed");
+            } catch (saveError) {
+                log(`TaskTimer: Error during final save: ${saveError.message}`);
+            }
+            
+            this.menu.removeAll();
+            log("TaskTimer: Extension disabled successfully");
+        } catch (e) {
+            log(`TaskTimer: Error in disable: ${e.message}`);
+        }
+    }
+});

@@ -1,197 +1,557 @@
+// classes/task_item.js
+// Compatible with GNOME Shell 46 (GJS 1.78)
+// Updated with namespaced CSS classes, overflow indicator, and more compact layout
 
-const PopupMenu = imports.ui.popupMenu;
-const Main = imports.ui.main;
-const Mainloop = imports.mainloop;
-const St = imports.gi.St;
-const Gio = imports.gi.Gio;
-const Clutter = imports.gi.Clutter;
-const Lang = imports.lang;
+import GObject  from 'gi://GObject';
+import St       from 'gi://St';
+import Gio      from 'gi://Gio';
+import GLib     from 'gi://GLib';
+import Clutter  from 'gi://Clutter';
 
-const Extension = imports.misc.extensionUtils.getCurrentExtension();
-const Utils = Extension.imports.classes.utils;
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as Main      from 'resource:///org/gnome/shell/ui/main.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-const CLOSE_ICON = Gio.icon_new_for_string(Extension.path + "/icons/close_icon.png");
-const PLAY_ICON = Gio.icon_new_for_string(Extension.path + "/icons/play_icon.png");
-const PAUSE_ICON = Gio.icon_new_for_string(Extension.path + "/icons/pause_icon.png");
-const RESTART_ICON = Gio.icon_new_for_string(Extension.path + "/icons/restart_icon.png");
-const SETTINGS_ICON = Gio.icon_new_for_string(Extension.path + "/icons/settings_icon.png");
-const UP_ICON = Gio.icon_new_for_string(Extension.path + "/icons/up_icon.png");
-const DOWN_ICON = Gio.icon_new_for_string(Extension.path + "/icons/down_icon.png");
+import * as Utils   from './utils.js';
+import TaskSettings from './task_settings.js';
 
-const PROGRESS_BAR_LENGTH = 400;
+const PLAY_ICON    = Gio.icon_new_for_string('media-playback-start-symbolic');
+const PAUSE_ICON   = Gio.icon_new_for_string('media-playback-pause-symbolic');
+const RESTART_ICON = Gio.icon_new_for_string('view-refresh-symbolic');
+const DELETE_ICON  = Gio.icon_new_for_string('user-trash-symbolic');
+const UP_ICON      = Gio.icon_new_for_string('go-up-symbolic');
+const DOWN_ICON    = Gio.icon_new_for_string('go-down-symbolic');
+const GEAR_ICON    = Gio.icon_new_for_string('emblem-system-symbolic');
 
+const PROGRESS_LEN = 400;
 
+export const TaskItem = GObject.registerClass(
+{
+    Signals: {
+        'delete_signal':        {},
+        'moveUp_signal':        {},
+        'moveDown_signal':      {},
+        'update_signal':        {},
+        'settings_signal':      {},
+        'closeSettings_signal': {},
+    },
+},
+class TaskItem extends PopupMenu.PopupBaseMenuItem {
 
-function Task(task){
-  this._init(task);
-}
-Task.prototype = {
-  __proto__: PopupMenu.PopupMenuItem.prototype,
-  _init: function(task){
-    this.task = task;
-    this.isTask = true;
-    this.settingsOpen = false;
-    PopupMenu.PopupMenuItem.prototype._init.call(this, this.task.name, false);
-    this.actor.add_style_class_name("task");
-    this.label.add_style_class_name("label");
-    this.durationLabel = new St.Label();
-    this.durationLabel.add_style_class_name("durationLabel");
-    this.durationLabel.text = Utils.convertTime(this.task.lastStop) + " / " + Utils.convertTime(this.task.currTime) + " / " + Utils.convertTime(this.task.time);
-    this.actor.add_actor(this.durationLabel);
-    var pixels = Math.floor((this.task.currTime / this.task.time) * PROGRESS_BAR_LENGTH);
-    this.actor.set_style('background-color:' + this.task.color + '; background-position:' + pixels + 'px 0px;');
-    this.connections = [];
+    _init(task, parent) {
+        super._init({
+            reactive: true,
+            can_focus: false,
+            activate: false,
+            style_class: 'tasktimer-row',
+        });
 
-    //Set menu buttons
-    this.buttonBox = new St.BoxLayout();
-    this.buttonBox.set_vertical(false);
-    this.buttonBox.add_style_class_name("button-box");
-    this.btn_delete = new St.Button({style_class: 'delete_button', label: ''});
-    let icon = new St.Icon({icon_size: 12, gicon: CLOSE_ICON, style_class: 'task-buttons'});
-    this.btn_delete.add_actor(icon);
-    this.btn_play = new St.Button({label: ""});
-    icon = new St.Icon({icon_size: 12, gicon: PLAY_ICON, style_class: 'task-buttons'});
-    this.btn_play.add_actor(icon);
-    this.btn_pause = new St.Button({label: ""});
-    icon = new St.Icon({icon_size: 12, gicon: PAUSE_ICON,style_class: 'task-buttons'});
-    this.btn_pause.add_actor(icon);
-    this.btn_restart = new St.Button({label: ""});
-    icon = new St.Icon({icon_size: 12, gicon: RESTART_ICON,style_class: 'task-buttons'});
-    this.btn_restart.add_actor(icon);
-    this.btn_settings = new St.Button({label: ""});
-    icon = new St.Icon({icon_size: 12, gicon: SETTINGS_ICON,style_class: 'task-buttons'});
-    this.btn_settings.add_actor(icon);
-    this.btn_up = new St.Button({label: ""});
-    icon = new St.Icon({gicon: UP_ICON,style_class: 'move-buttons'});
-    this.btn_up.add_actor(icon);
-    this.btn_down = new St.Button({label: ""});
-    icon = new St.Icon({gicon: DOWN_ICON,style_class: 'move-buttons'});
-    this.btn_down.add_actor(icon);
-    this.moveBox = new St.BoxLayout();
-    this.moveBox.add_style_class_name("move-box");
-    this.moveBox.set_vertical(true);
-    this.moveBox.add_actor(this.btn_up);
-    this.moveBox.add_actor(this.btn_down);
-    this.buttonBox.add_actor(this.btn_play);
-    this.buttonBox.add_actor(this.btn_pause);
-    this.buttonBox.add_actor(this.btn_restart);
-    this.buttonBox.add_actor(this.btn_delete);
-    this.buttonBox.add_actor(this.moveBox);
-    this.buttonBox.add_actor(this.btn_settings);
-    this.actor.add_actor(this.buttonBox);
-    this.btn_pause.hide();
-    this.btn_delete.hide();
-    this.moveBox.hide();
+        // Store parent reference
+        this._parent = parent;
 
-    //connect buttons to events
-    let conn = this.btn_delete.connect('clicked', Lang.bind(this, this._delete_task));
-    this.connections.push([this.btn_delete, conn]);
-    conn = this.btn_play.connect("clicked", Lang.bind(this, this._startStop));
-    this.connections.push([this.btn_play, conn]);
-    conn = this.btn_pause.connect("clicked", Lang.bind(this, this._startStop));
-    this.connections.push([this.btn_pause, conn]);
-    conn = this.btn_restart.connect("clicked", Lang.bind(this, this._restart));
-    this.connections.push([this.btn_restart, conn]);
-    conn = this.btn_settings.connect("clicked", Lang.bind(this, this._openCloseSettings));
-    this.connections.push([this.btn_settings, conn]);
-    conn = this.btn_up.connect("clicked", Lang.bind(this, this._moveUp));
-    this.connections.push([this.btn_settings, conn]);
-    conn = this.btn_down.connect("clicked", Lang.bind(this, this._moveDown));
-    this.connections.push([this.btn_settings, conn]);
-  },
-
-  _update : function(loop = true){
-      var duration = this.task.time;
-          this.task.currTime = this.task.currTime + 1;
-          this.task.dateTime = new Date();
-          this.task.weekdays = Utils.updateWeeklyTimes(this.task.weekdays, (new Date).getDay(), this.task.currTime, this.task.time, this.task.lastStop);
-          this.emit('update_signal', this.task);
-          this.durationLabel.text = Utils.convertTime(this.task.lastStop) + " / " + Utils.convertTime(this.task.currTime) + " / " + Utils.convertTime(this.task.time);
-
-      if (this.task.currTime == duration){
-          Main.notify("Time limit of " + this.task.name + " reached!");
-      } else if (this.task.currTime > duration){
-          if (this.task.currTime % 2 == 0){
-            this.actor.set_style('background-color:' + this.task.color + '; background-position: 400px 0px;');
-          } else {
-            this.actor.set_style('background-position: 400px 0px;');
-          }
-      } else {
-          var pixels = Math.floor((this.task.currTime / duration) * PROGRESS_BAR_LENGTH);
-          this.actor.set_style('background-color:' + this.task.color + '; background-position:' + pixels + 'px 0px;');
-      }
-      if (loop){
-          this._time_count_id = Mainloop.timeout_add_seconds(1, Lang.bind(this, this._update));
-      }
-  },
-
-  _startStop : function(){
-      this.task.running = !this.task.running;
-      if(this.task.running){
-        this.btn_play.hide();
-        this.btn_pause.show();
-        this.emit('stop_signal', this.task);
-        this._update();
-      } else {
-        if (this.task.currTime > this.task.time){
-            this.actor.set_style('background-color:' + this.task.color + '; background-position: 400px 0px;');
+        // Crucial: Disable default PopupMenuItem behavior
+        this._activatable = false;
+        if (this._pressId) {
+            this.disconnect(this._pressId);
+            this._pressId = 0;
         }
-        this.task.lastStop = this.task.currTime;
-        this.task.weekdays = Utils.updateWeeklyTimes(this.task.weekdays, (new Date).getDay(), this.task.currTime, this.task.time, this.task.lastStop);
-        this.durationLabel.text = Utils.convertTime(this.task.lastStop) + " / " + Utils.convertTime(this.task.currTime) + " / " + Utils.convertTime(this.task.time);
-        this.btn_play.show();
-        this.btn_pause.hide();
-        this.emit('update_signal', this.task);
-        Mainloop.source_remove(this._time_count_id);
-      }
-  },
+        if (this._releaseId) {
+            this.disconnect(this._releaseId);
+            this._releaseId = 0;
+        }
 
-  _restart : function(){
-      this.task.currTime = 0;
-      this.task.running = false;
-      Mainloop.source_remove(this._time_count_id);
-      this._startStop();
-  },
+        this.task = task;
+        this._timerId = 0;
+        this._snoozeTimerId = 0;
+        this.settingsOpen = false;
 
-  _moveUp : function() {
-      this.emit('moveUp_signal', this.task);
-  },
-
-  _moveDown : function() {
-      this.emit('moveDown_signal', this.task);
-  },
-
-  _openCloseSettings : function(){
-    if (this.settingsOpen){
-      this.emit('closeSettings_signal', this.task);
-      this.btn_delete.hide();
-      this.moveBox.hide();
-      this.btn_restart.show();
-      this.btn_play.show();
-    } else {
-      if (this.task.running){
-        this._startStop();
-      }
-      this.emit('settings_signal', this.task);
-      this.moveBox.show();
-      this.btn_play.hide();
-      this.btn_pause.hide();
-      this.btn_restart.hide();
-      this.btn_delete.show();
+        // Setup UI
+        this._refreshBg();
+        this._buildLayout();
+        this._updateTimeLabel();
+        this._connectSignals();
+        
+        // If task was running before, restart it
+        if (task.running) {
+            this._play.hide();
+            this._pause.show();
+            this._startTimer();
+        }
     }
-    this.settingsOpen = !this.settingsOpen;
-  },
 
-  destroy: function(){
-    Mainloop.source_remove(this._time_count_id);
-    for (var connection of this.connections.reverse())
-        connection[0].disconnect(connection[1]);
-    this.connections = null;
-    this.actor.destroy();
-  },
+    _buildLayout() {
+        // Create a more efficient layout with better spacing
+        
+        // Left side - Play/Pause
+        this._play = new St.Button({
+            style_class: 'tasktimer-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
+            child: new St.Icon({ 
+                gicon: PLAY_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
+        });
+        this._pause = new St.Button({
+            style_class: 'tasktimer-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
+            child: new St.Icon({ 
+                gicon: PAUSE_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
+        });
+        this._pause.hide();
+        
+        const left = new St.BoxLayout({
+            style: 'margin-right: 4px;'
+        });
+        left.add_child(this._play);
+        left.add_child(this._pause);
+        
+        // Center - Name & Time
+        // Make task name clickable if link exists
+        if (this.task.link && this.task.link.trim()) {
+            log(`TaskTimer: Creating clickable name for task "${this.task.name}" with link "${this.task.link}"`);
+            this._name = new St.Button({
+                label: this.task.name,
+                style_class: 'tasktimer-name tasktimer-name-button',
+                x_expand: true,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: 'max-width: 200px;',
+                reactive: true,
+                can_focus: true,
+                track_hover: true
+            });
+        } else {
+            log(`TaskTimer: Creating regular label for task "${this.task.name}" (no link: "${this.task.link || 'undefined'}")`);
+            this._name = new St.Label({
+                text: this.task.name,
+                style_class: 'tasktimer-name',
+                x_expand: true,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: 'max-width: 200px; text-overflow: ellipsis;'
+            });
+        }
+        
+        this._timeLbl = new St.Label({
+            style_class: 'tasktimer-timer-display',
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        
+        // Right side - Controls in a more compact layout
+        this._restart = new St.Button({
+            style_class: 'tasktimer-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
+            child: new St.Icon({ 
+                gicon: RESTART_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
+        });
+        this._delete = new St.Button({
+            style_class: 'tasktimer-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
+            child: new St.Icon({ 
+                gicon: DELETE_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
+        });
+        this._up = new St.Button({
+            style_class: 'tasktimer-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
+            child: new St.Icon({ 
+                gicon: UP_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
+        });
+        this._down = new St.Button({
+            style_class: 'tasktimer-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
+            child: new St.Icon({ 
+                gicon: DOWN_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
+        });
+        this._gear = new St.Button({
+            style_class: 'tasktimer-button',
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
+            child: new St.Icon({ 
+                gicon: GEAR_ICON,
+                icon_size: 16 // Smaller icon size
+            }),
+        });
+        
+        // Use a more compact button layout with less space between items
+        const right = new St.BoxLayout({
+            style: 'spacing: 2px; margin-left: 4px;'
+        });
+        right.add_child(this._restart);
+        right.add_child(this._delete);
+        right.add_child(this._up);
+        right.add_child(this._down);
+        right.add_child(this._gear);
+        
+        // Add everything to the container
+        this.add_child(left);
+        this.add_child(this._name);
+        this.add_child(this._timeLbl);
+        this.add_child(right);
+    }
 
-  _delete_task: function(){
-      this.emit('delete_signal', this.task);
-      this.destroy();
-  }
-}
+    _connectSignals() {
+        this._play.connect('clicked', this._onPlayClicked.bind(this));
+        this._pause.connect('clicked', this._onPauseClicked.bind(this));
+        this._restart.connect('clicked', this._onRestartClicked.bind(this));
+        this._delete.connect('clicked', this._onDeleteClicked.bind(this));
+        this._up.connect('clicked', this._onUpClicked.bind(this));
+        this._down.connect('clicked', this._onDownClicked.bind(this));
+        this._gear.connect('clicked', this._onGearClicked.bind(this));
+        
+        // Connect name click if it's a button (has link)
+        if (this.task.link && this.task.link.trim() && this._name.connect) {
+            this._name.connect('clicked', this._onNameClicked.bind(this));
+        }
+    }
+
+    _onPlayClicked() {
+        log("TaskTimer: Play clicked");
+        this._play.hide();
+        this._pause.show();
+        this.task.running = true;
+        this._startTimer();
+    }
+
+    _onPauseClicked() {
+        log("TaskTimer: Pause clicked");
+        this._pause.hide();
+        this._play.show();
+        this.task.running = false;
+        this.stopWithRoundUp();
+    }
+
+    _onRestartClicked() {
+        log("TaskTimer: Restart clicked");
+        this.task.currTime = 0;
+        this._updateTimeLabel();
+        this._refreshBg();
+        
+        if (this.task.running) {
+            this._stopTimer();
+            this._startTimer();
+        }
+    }
+
+    _onDeleteClicked() {
+        log("TaskTimer: Delete clicked");
+        this.emit('delete_signal');
+    }
+
+    _onUpClicked() {
+        log("TaskTimer: Up clicked");
+        this.emit('moveUp_signal');
+    }
+
+    _onDownClicked() {
+        log("TaskTimer: Down clicked");
+        this.emit('moveDown_signal');
+    }
+
+    _onGearClicked() {
+        log(`TaskTimer: Gear clicked - task=${this.task.name}, settingsOpen=${this.settingsOpen}`);
+        
+        // Toggle settings state
+        this.settingsOpen = !this.settingsOpen;
+        
+        // Emit the right signal - this is crucial
+        if (this.settingsOpen) {
+            log("TaskTimer: Emitting settings_signal");
+            this.emit('settings_signal');
+        } else {
+            log("TaskTimer: Emitting closeSettings_signal");
+            this.emit('closeSettings_signal');
+        }
+    }
+
+    _onNameClicked() {
+        log(`TaskTimer: Name clicked - opening link: ${this.task.link}`);
+        
+        if (!this.task.link || !this.task.link.trim()) {
+            return;
+        }
+        
+        try {
+            // Use Gio to open the URL in the default browser
+            const url = this.task.link.trim();
+            
+            // Add protocol if missing
+            let fullUrl = url;
+            if (!url.match(/^https?:\/\//)) {
+                fullUrl = `https://${url}`;
+            }
+            
+            // Launch the URL
+            Gio.AppInfo.launch_default_for_uri(fullUrl, null);
+            
+        } catch (e) {
+            log(`TaskTimer: Error opening link: ${e.message}`);
+        }
+    }
+
+    _startTimer() {
+        // Stop any existing timer
+        this._stopTimer();
+        
+        log("TaskTimer: Starting timer");
+        
+        // Setup timer with GLib.timeout_add
+        this._timerId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            1000, // 1000ms = 1 second
+            () => {
+                // Check if task is still running
+                if (!this.task || !this.task.running) {
+                    log("TaskTimer: Timer stopped (task no longer running)");
+                    return false; // Stop the timer
+                }
+                
+                // Update task time
+                this.task.currTime++;
+                this._updateTimeLabel();
+                this._refreshBg();
+                
+                // Direct update to parent timer
+                if (this._parent && typeof this._parent.forceUpdateNow === 'function') {
+                    this._parent.forceUpdateNow();
+                }
+                
+                // Emit signal for other listeners
+                this.emit('update_signal');
+                
+                // Check if planned time reached
+                if (this.task.currTime === this.task.planned) {
+                    log(`TaskTimer: Task "${this.task.name}" reached planned time`);
+                    this._showTimerCompletedDialog();
+                }
+                
+                return true; // Keep the timer running
+            }
+        );
+        
+        log("TaskTimer: Timer started with ID " + this._timerId);
+        
+        // Force an initial update
+        this._updateTimeLabel();
+        this._refreshBg();
+        
+        // Direct parent update
+        if (this._parent && typeof this._parent.forceUpdateNow === 'function') {
+            this._parent.forceUpdateNow();
+        }
+        
+        this.emit('update_signal');
+    }
+    
+    // Helper method to show timer completed dialog
+    _showTimerCompletedDialog() {
+        // Import the TimerCompletedDialog dynamically to avoid circular dependencies
+        import('./timer_notification.js').then(({TimerCompletedDialog}) => {
+            // Create and show the modal dialog
+            const dialog = new TimerCompletedDialog(
+                this.task.name,
+                Utils.mmss(this.task.planned)
+            );
+            
+            // Connect to the closed signal to check if we should stop the timer
+            dialog.connect('closed', () => {
+                if (dialog.shouldStopTimer) {
+                    log("TaskTimer: Dialog requested to stop timer");
+                    this._onPauseClicked();
+                } else if (dialog.snoozeRequested) {
+                    log("TaskTimer: Dialog requested snooze (5 min)");
+                    // Set up a timer to show the notification again in 5 minutes
+                    this._snoozeTimerId = GLib.timeout_add_seconds(
+                        GLib.PRIORITY_DEFAULT,
+                        300, // 5 minutes = 300 seconds
+                        () => {
+                            log("TaskTimer: Snooze time elapsed, showing notification again");
+                            this._showTimerCompletedDialog();
+                            this._snoozeTimerId = 0;
+                            return GLib.SOURCE_REMOVE;
+                        }
+                    );
+                }
+            });
+            
+            dialog.open();
+        }).catch(e => {
+            log(`TaskTimer: Error showing dialog: ${e.message}`);
+            // Fallback to standard notification if dialog fails
+            Main.notify(_('"%s" reached planned time').format(this.task.name));
+        });
+    }
+
+    _stopTimer() {
+        if (this._timerId) {
+            log("TaskTimer: Removing timer with ID " + this._timerId);
+            GLib.Source.remove(this._timerId);
+            this._timerId = 0;
+        }
+        
+        this.task.lastStop = this.task.currTime;
+        
+        // Direct parent update
+        if (this._parent && typeof this._parent.forceUpdateNow === 'function') {
+            this._parent.forceUpdateNow();
+        }
+        
+        this.emit('update_signal');
+    }
+    
+    // Stop timer with round-up functionality
+    stopWithRoundUp() {
+        if (this._timerId) {
+            log("TaskTimer: Removing timer with ID " + this._timerId);
+            GLib.Source.remove(this._timerId);
+            this._timerId = 0;
+        }
+        
+        // Apply round-up if configured
+        if (this.task.roundUpMinutes && this.task.roundUpMinutes > 0) {
+            const roundUpSeconds = this.task.roundUpMinutes * 60;
+            const roundedTime = this._roundUpTime(this.task.currTime, roundUpSeconds);
+            
+            log(`TaskTimer: Rounding up "${this.task.name}" from ${Utils.mmss(this.task.currTime)} to ${Utils.mmss(roundedTime)}`);
+            this.task.currTime = roundedTime;
+        }
+        
+        this.task.lastStop = this.task.currTime;
+        
+        // Update UI immediately to show round-up
+        this._updateTimeLabel();
+        this._refreshBg();
+        
+        // Direct parent update
+        if (this._parent && typeof this._parent.forceUpdateNow === 'function') {
+            this._parent.forceUpdateNow();
+        }
+        
+        this.emit('update_signal');
+    }
+    
+    _roundUpTime(currentTime, roundUpSeconds) {
+        if (roundUpSeconds <= 0) return currentTime;
+        
+        // Round up to the next multiple of roundUpSeconds
+        const remainder = currentTime % roundUpSeconds;
+        if (remainder === 0) {
+            return currentTime; // Already at a round number
+        }
+        
+        return currentTime + (roundUpSeconds - remainder);
+    }
+
+    _updateTimeLabel() {
+        this._timeLbl.text = `${Utils.mmss(this.task.currTime)} / ${Utils.mmss(this.task.planned)}`;
+        this._timeLbl.set_style(this.task.currTime > this.task.planned ? 'color:#f55; font-weight: bold;' : '');
+        
+        // Force progress bar update
+        this._refreshBg();
+    }
+
+    _updateNameDisplay() {
+        // Update the name display and make it clickable if link exists
+        const hasLink = this.task.link && this.task.link.trim();
+        
+        // If link status changed, recreate the name widget
+        if ((hasLink && !this._name.connect) || (!hasLink && this._name.connect)) {
+            // Remove old name widget
+            this._name.destroy();
+            
+            // Create new name widget
+            if (hasLink) {
+                this._name = new St.Button({
+                    label: this.task.name,
+                    style_class: 'tasktimer-name tasktimer-name-button',
+                    x_expand: true,
+                    y_align: Clutter.ActorAlign.CENTER,
+                    style: 'max-width: 200px;',
+                    reactive: true,
+                    can_focus: true,
+                    track_hover: true
+                });
+                this._name.connect('clicked', this._onNameClicked.bind(this));
+            } else {
+                this._name = new St.Label({ 
+                    text: this.task.name,
+                    style_class: 'tasktimer-name',
+                    x_expand: true,
+                    y_align: Clutter.ActorAlign.CENTER,
+                    style: 'max-width: 200px; text-overflow: ellipsis;'
+                });
+            }
+            
+            // Insert at the correct position (between left box and time label)
+            this.insert_child_at_index(this._name, 1);
+        } else {
+            // Just update the text
+            if (this._name.label !== undefined) {
+                this._name.label = this.task.name;
+            } else {
+                this._name.text = this.task.name;
+            }
+        }
+    }
+
+    _refreshBg() {
+        // Check if we've exceeded the planned time
+        const isOvertime = this.task.currTime > this.task.planned && this.task.planned > 0;
+        
+        // For overtime, use max progress with special border
+        if (isOvertime) {
+            // Use a pulsing border animation for overtime
+            this.set_style(`
+                background-color: ${this.task.color};
+                border-radius: 8px;
+                box-shadow: inset ${Math.floor(PROGRESS_LEN * 0.95)}px 0 0 0 rgba(0,0,0,0.3);
+                border: 2px solid #f55;
+                animation: tasktimer-overtime-pulse 2s infinite;
+            `);
+        } else {
+            // Normal proportional progress (0-95%)
+            const frac = this.task.planned > 0 ? 
+                Math.min(0.95, (this.task.currTime / this.task.planned) * 0.95) : 0;
+            
+            this.set_style(`
+                background-color: ${this.task.color};
+                border-radius: 8px;
+                box-shadow: inset ${Math.floor(PROGRESS_LEN * frac)}px 0 0 0 rgba(0,0,0,0.3);
+                border: none;
+            `);
+        }
+    }
+
+    destroy() {
+        // Stop the regular timer
+        this._stopTimer();
+        
+        // Also clean up snooze timer if it exists
+        if (this._snoozeTimerId) {
+            GLib.source_remove(this._snoozeTimerId);
+            this._snoozeTimerId = 0;
+        }
+        
+        super.destroy();
+    }
+});

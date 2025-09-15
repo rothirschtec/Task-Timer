@@ -1,0 +1,193 @@
+// classes/checkbox_settings.js
+import St       from 'gi://St';
+import Gio      from 'gi://Gio';
+import Clutter  from 'gi://Clutter';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
+
+import * as Utils from './utils.js';
+
+const KEY_RETURN = 65293;
+const KEY_ENTER  = 65421;
+
+// WCAG 2.0 AA compliant colors (same as in task_settings.js)
+const COLORS = [
+    '#2272C8', // Blue
+    '#3C9D4E', // Green
+    '#6D4C9F', // Purple
+    '#C42B1C', // Red
+    '#7D5700', // Brown/Orange
+    '#515C6B', // Blue Gray
+    '#0797A8', // Teal
+    '#71B238', // Light Green
+    '#CB7300', // Orange
+    '#B9227D', // Pink
+];
+
+/* Simple settings class for checkbox items */
+export default class CheckboxSettings extends PopupMenu.PopupMenuSection {
+
+    constructor(task) {
+        super();
+        
+        log("CheckboxSettings: Initializing settings for " + task.name);
+        this.task = task;
+        
+        // Ensure there's a description field
+        if (!task.description) {
+            task.description = _('Enter description here!');
+        }
+
+        // Ensure task has link property for backward compatibility
+        if (this.task.link === undefined) {
+            this.task.link = '';
+        }
+
+        /* description row */
+        const descItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        const descBox = new St.BoxLayout({ style_class: 'settings-box' });
+        
+        this._descBtn = new St.Button({ 
+            label: Utils.addNewLines(task.description),
+            style_class: 'description-btn',
+            reactive: true,
+            can_focus: true,
+        });
+        this._descEntry = new St.Entry({ 
+            text: task.description,
+            style_class: 'description-label',
+            reactive: true,
+            can_focus: true,
+        });
+        this._descEntry.hide();
+        descBox.add_child(this._descBtn);
+        descBox.add_child(this._descEntry);
+        descItem.add_child(descBox);
+        this.addMenuItem(descItem);
+
+        this._descBtn.connect('clicked', () => {
+            log("CheckboxSettings: Description button clicked");
+            this._descBtn.hide(); 
+            this._descEntry.show();
+            this._descEntry.grab_key_focus();
+        });
+        
+        const saveDesc = () => {
+            log("CheckboxSettings: Saving description");
+            this._descEntry.hide(); 
+            this._descBtn.show();
+            this.task.color = this.task.color || Utils.generateColor(); // Ensure task has a color
+            this.task.description = this._descEntry.get_text() || _('Enter description here!');
+            this._descBtn.label = Utils.addNewLines(this.task.description);
+            this.emit('update_signal');
+        };
+        
+        this._descEntry.clutter_text.connect('key-focus-out', saveDesc);
+        this._descEntry.clutter_text.connect('key-press-event',
+            (_o,e) => { 
+                if ([KEY_RETURN, KEY_ENTER].includes(e.get_key_symbol())) {
+                    saveDesc();
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            });
+
+        /* link row */
+        const linkItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        const linkBox = new St.BoxLayout({ 
+            style_class: 'settings-box',
+            vertical: false,
+            style: 'spacing: 8px;'
+        });
+        
+        const linkLabel = new St.Label({ 
+            text: _('Link:'), 
+            style_class: 'settings-label',
+            style: 'min-width: 60px;'
+        });
+        
+        this._linkEntry = new St.Entry({
+            text: task.link || '',
+            hint_text: _('https://example.com'),
+            style_class: 'link-entry',
+            x_expand: true,
+            reactive: true,
+            can_focus: true,
+            style: 'text-align: left;'
+        });
+
+        // Force left alignment on the ClutterText
+        if (this._linkEntry.clutter_text) {
+            this._linkEntry.clutter_text.set_text_direction(Clutter.TextDirection.LTR);
+            this._linkEntry.clutter_text.set_line_alignment(0); // 0 = LEFT alignment
+        }
+
+        linkBox.add_child(linkLabel);
+        linkBox.add_child(this._linkEntry);
+        linkItem.add_child(linkBox);
+        this.addMenuItem(linkItem);
+
+        // Link entry handlers
+        const saveLink = () => {
+            log("CheckboxSettings: Saving link");
+            this.task.link = this._linkEntry.get_text().trim() || '';
+            this.emit('update_signal');
+        };
+        
+        this._linkEntry.clutter_text.connect('key-focus-out', saveLink);
+        this._linkEntry.clutter_text.connect('key-press-event',
+            (_o,e) => { 
+                if ([KEY_RETURN, KEY_ENTER].includes(e.get_key_symbol())) {
+                    saveLink();
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            });
+
+        /* color picker row */
+        const colorItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        const colorBox = new St.BoxLayout({ style_class: 'settings-box' });
+        
+        colorBox.add_child(new St.Label({ text: _('Color:'), style_class: 'settings-label' }));
+        
+        const colorGrid = new St.BoxLayout({ 
+            style_class: 'color-grid',
+            x_expand: true,
+        });
+        
+        COLORS.forEach(color => {
+            const colorBtn = new St.Button({
+                style: `background-color: ${color}; width: 36px; height: 36px; margin: 4px; border-radius: 18px;`,
+                reactive: true,
+                can_focus: true,
+            });
+            colorBtn.connect('clicked', () => {
+                log("CheckboxSettings: Color changed to " + color);
+                this.task.color = color;
+                this.emit('update_signal');
+            });
+            colorGrid.add_child(colorBtn);
+        });
+        
+        // Random color button
+        const randomBtn = new St.Button({
+            label: _('Random'),
+            style_class: 'random-color-btn',
+            reactive: true,
+            can_focus: true,
+        });
+        randomBtn.connect('clicked', () => {
+            const newColor = Utils.generateColor();
+            log("CheckboxSettings: Color changed to random: " + newColor);
+            this.task.color = newColor;
+            this.emit('update_signal');
+        });
+        
+        colorBox.add_child(colorGrid);
+        colorBox.add_child(randomBtn);
+        colorItem.add_child(colorBox);
+        this.addMenuItem(colorItem);
+        
+        log("CheckboxSettings: Initialization complete");
+    }
+}

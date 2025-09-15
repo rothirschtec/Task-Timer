@@ -1,139 +1,313 @@
+/* TaskTimer Stylesheet - PROPERLY SCOPED to only affect this extension */
 
-.new-task-box {
-  padding-left: 15px;
-  padding-right: 15px;
+/* Define a namespace prefix for all selectors */
+.tasktimer-popup {
+  /* This targets only our extension's popup */
 }
 
-.new-task-entry {
-  margin-top: 10px;
-  margin-left: 25px;
-  margin-right: 50px;
+/* Ensure popup content sizing only affects our extension */
+.tasktimer-popup .popup-menu-content {
+  width: 580px !important;
+  min-width: 580px !important;
+  padding: 8px !important;
+}
+
+/* Ensure page indicator only affects our extension */
+.tasktimer-popup .popup-menu-item:first-child {
+  text-align: center !important;
+  padding: 2px !important;
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Navigation buttons */
+.tasktimer-nav-button {
+  width: 100% !important;
+  height: 20px !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 4px !important;
+  margin: 1px 0 !important;
+}
+
+.tasktimer-nav-button:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Page indicator */
+.tasktimer-page-indicator {
+  font-size: 11px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  background-color: rgba(0, 0, 0, 0.2) !important;
+  border-radius: 10px !important;
+  padding: 1px 8px !important;
+  margin: 2px 0 !important;
+}
+
+/* Task rows - ONLY FIX THE WIDTH */
+.tasktimer-popup .tasktimer-row,
+.tasktimer-popup .tasktimer-checkbox-row {
+  width: 564px !important; /* 480px - 16px padding */
+  margin: 4px 0 !important;
+  padding: 6px 8px !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+}
+
+/* FIRST ITEM FIX: Ensure the first item has the same size as others */
+.tasktimer-popup .popup-menu-section .tasktimer-row:first-child,
+.tasktimer-popup .popup-menu-section .tasktimer-checkbox-row:first-child {
+  width: 564px !important; /* Match the width to other rows */
+  min-width: unset !important;
+  max-width: unset !important;
+  margin: 4px 0 !important;
+  padding: 6px 8px !important;
+}
+
+/* Task names within our extension */
+.tasktimer-popup .tasktimer-name {
+  flex: 1 !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  text-overflow: ellipsis !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  font-size: 15px !important; /* Increased font size */
+  text-align: left !important; /* Force left alignment */
+}
+
+/* Clickable task names with links - more specific selector */
+.tasktimer-popup .popup-menu-content .tasktimer-name-button,
+.tasktimer-popup .tasktimer-name-button {
+  flex: 1 !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  text-overflow: ellipsis !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  font-size: 15px !important;
+  text-align: left !important;
+  text-decoration: underline !important;
+  text-decoration-color: white !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 2px !important;
+  color: inherit !important;
+  background-color: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Button label specific styling */
+.tasktimer-popup .tasktimer-name-button StLabel,
+.tasktimer-popup .tasktimer-name-button .label {
+  text-decoration: underline !important;
+  text-decoration-color: inherit !important;
+}
+
+.tasktimer-popup .tasktimer-name-button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  cursor: pointer !important;
+}
+
+/* Link entry field styling */
+.tasktimer-popup .link-entry {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  color: white !important;
+  text-align: left !important;
+}
+
+.tasktimer-popup .link-entry:focus {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Target the actual text input within the entry */
+.tasktimer-popup .link-entry StLabel,
+.tasktimer-popup .link-entry .clutter-text,
+.tasktimer-popup .link-entry input {
+  text-align: left !important;
+  padding-left: 0 !important;
+}
+
+/* Also target the ClutterText directly */
+.tasktimer-popup .link-entry > * {
+  text-align: left !important;
+}
+
+/* Timer display within our extension */
+.tasktimer-popup .tasktimer-timer-display {
+  width: auto !important;
+  min-width: 90px !important;
+  text-align: right !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  font-weight: bold !important;
+  font-size: 15px !important; /* Increased font size */
+}
+
+/* Overtime timer */
+.tasktimer-popup .tasktimer-timer-display.overtime {
+  color: #f55 !important;
+  font-weight: bold !important;
+}
+
+/* Buttons within our extension */
+.tasktimer-popup .tasktimer-button {
+  min-width: 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  padding: 0 !important;
+  margin: 0 2px !important;
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.tasktimer-popup .tasktimer-button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.tasktimer-popup .tasktimer-button:active {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Checkbox container */
+.tasktimer-popup .tasktimer-checkbox-container {
+  margin-left: 4px !important;
+  margin-right: 4px !important;
+  spacing: 4px !important;
+}
+
+/* Checkbox buttons */
+.tasktimer-popup .tasktimer-checkbox-button {
+  border-radius: 4px !important;
+  width: 24px !important;
+  height: 24px !important;
+  margin: 0 2px !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.tasktimer-popup .tasktimer-checkbox-button:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* New task entries */
+.tasktimer-popup .tasktimer-new-task-entry {
+  min-height: 24px !important;
+  padding: 2px 8px !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
+  font-size: 15px !important; /* Increased font size */
+}
+
+/* New task sliders */
+.tasktimer-popup .tasktimer-new-task-slider {
+  height: 6px !important;
+  width: 120px !important;
+  margin: 0 6px !important;
+}
+
+/* Specifically ensure checkbox rows have left-aligned text */
+.tasktimer-popup .tasktimer-checkbox-row .tasktimer-name,
+.tasktimer-popup .tasktimer-checkbox-row StLabel {
+  text-align: left !important;
+}
+
+/* Settings area text should be larger too */
+.tasktimer-popup .settings-box StLabel,
+.tasktimer-popup .settings-box StEntry,
+.tasktimer-popup .settings-box .description-btn,
+.tasktimer-popup .settings-box .description-label {
+  font-size: 15px !important;
+}
+
+/* Style for the time input field */
+.tasktimer-popup .tasktimer-time-entry {
+  min-width: 70px !important;
+  width: 70px !important;
+  height: 30px !important;
+  padding: 2px 6px !important;
+  margin-left: 8px !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
+  border-radius: 4px !important;
+  font-size: 15px !important;
+  text-align: center !important;
+}
+
+/* Container for time input elements */
+.tasktimer-popup .tasktimer-time-input-box {
+  spacing: 6px !important;
+  min-height: 30px !important;
+}
+
+/* The animation is automatically scoped */
+@keyframes tasktimer-overtime-pulse {
+  0% { border-color: #f55; }
+  50% { border-color: #ff8080; }
+  100% { border-color: #f55; }
+}
+
+/* Time label in panel */
+.tasktimer-time-label {
+  font-size: 15px !important;
+  font-weight: bold !important;
+  margin: 0 10px !important;
+}
+
+/* Add these styles to the end of your stylesheet.css file */
+
+/* Timer completed dialog styles */
+.timer-completed-dialog .modal-dialog-content-box {
+  margin: 32px 40px;
+  spacing: 16px;
+  max-width: 28em;
+}
+
+.timer-completed-content {
+  spacing: 16px;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.timer-completed-header {
+  font-size: 18px;
+  font-weight: bold;
   text-align: center;
-  width: 150px;
+  color: #f66151; /* Red color for emphasis */
 }
 
-.new-task-slider {
-  margin-top: 15px;
-  width: 200px;
-}
-
-.new-task-header {
-  font-size: 20px;
-  width: 400 px;
-  vertical-align: middle;
+.timer-completed-task-name {
+  font-size: 24px;
+  font-weight: bold;
   text-align: center;
 }
 
-.time-label {
-  margin-top: 10px;
-  font-size: 20px;
-  width: 100px;
-  vertical-align: middle;
+.timer-completed-description {
+  font-size: 14px;
   text-align: center;
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.enter-button {
-  margin-top: 10px;
-  text-align: center;
-}
-
-.task-box {
-  margin-top: 5px;
-  padding-left: 15px;
-  width: 400px;
-}
-
-.task {
-  margin-top: 5px;
-  background-color: #FF0000;
-  background-image: url('icons/progress_bar.png');
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  border-radius: 7px;
-}
-
-.delete_button {
-  margin-right: 0px;
-  padding-right: 0px;
-  text-align: right;
-}
-
-.label {
-  width: 120px;
-}
-.durationLabel {
-  text-align: center;
-  width: 140px;
-}
-
-.settings-box {
-  padding-left: 5px;
-  padding-right: 15px;
-  width: 399px;
-}
-
-.time-slider {
-  margin-left: 15px;
-  margin-right: 15px;
-  width: 270px;
-}
-
-.settings-label {
-  width: 100px;
-}
-
-.weekday-label {
-  margin-bottom: 5px;
+.timer-completed-countdown {
   font-size: 12px;
-  width: 44px;
+  font-style: italic;
   text-align: center;
-  text-decoration: underline;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 8px;
 }
 
-.weekday-times {
-  font-size: 10px;
-  width: 44px;
-  text-align: center;
+/* Pulsing animation */
+@keyframes timer-completed-pulse {
+  0% { box-shadow: 0 0 0 0px rgba(246, 97, 81, 0.4); }
+  50% { box-shadow: 0 0 0 20px rgba(246, 97, 81, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(246, 97, 81, 0); }
 }
 
-.weekday-header {
-  font-size: 10px;
-  width: 40px;
-}
-
-.button-box {
-  padding-left: 20px;
-  width: 100px;
-  text-align: center;
-  spacing: 10px;
-}
-
-.move-buttons {
-  width: 12px;
-  height: 6px;
-}
-
-.move-box {
-  margin-top: 2px;
-  width: 12px;
-  height: 12px;
-}
-
-.description-label {
-  width: 380px;
-  font-size: 12px;
-}
-
-.description-btn {
-  width: 380px;
-  font-size: 12px;
-
-}
-
-.settings-mainbox {
-  height: 400px;
-  background-color: blue;
-}
-
-.task-buttons {
+.timer-completed-content {
+  animation: timer-completed-pulse 2s infinite;
 }
