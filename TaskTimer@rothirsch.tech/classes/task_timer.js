@@ -31,7 +31,7 @@ const BACKUP_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.backup.json']);
 const TEMP_FILE = GLib.build_filenamev([CONFIG_DIR, 'state.temp.json']);
 
 // Set how many tasks to display at once
-const VISIBLE_TASKS = 15;
+const VISIBLE_TASKS = 16;
 
 export default GObject.registerClass(
 class TaskTimer extends PanelMenu.Button {
