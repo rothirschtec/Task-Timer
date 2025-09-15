@@ -38,6 +38,11 @@ export default class CheckboxSettings extends PopupMenu.PopupMenuSection {
             task.description = _('Enter description here!');
         }
 
+        // Ensure task has link property for backward compatibility
+        if (this.task.link === undefined) {
+            this.task.link = '';
+        }
+
         /* description row */
         const descItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         const descBox = new St.BoxLayout({ style_class: 'settings-box' });
@@ -82,6 +87,58 @@ export default class CheckboxSettings extends PopupMenu.PopupMenuSection {
             (_o,e) => { 
                 if ([KEY_RETURN, KEY_ENTER].includes(e.get_key_symbol())) {
                     saveDesc();
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            });
+
+        /* link row */
+        const linkItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        const linkBox = new St.BoxLayout({ 
+            style_class: 'settings-box',
+            vertical: false,
+            style: 'spacing: 8px;'
+        });
+        
+        const linkLabel = new St.Label({ 
+            text: _('Link:'), 
+            style_class: 'settings-label',
+            style: 'min-width: 60px;'
+        });
+        
+        this._linkEntry = new St.Entry({
+            text: task.link || '',
+            hint_text: _('https://example.com'),
+            style_class: 'link-entry',
+            x_expand: true,
+            reactive: true,
+            can_focus: true,
+            style: 'text-align: left;'
+        });
+
+        // Force left alignment on the ClutterText
+        if (this._linkEntry.clutter_text) {
+            this._linkEntry.clutter_text.set_text_direction(Clutter.TextDirection.LTR);
+            this._linkEntry.clutter_text.set_line_alignment(0); // 0 = LEFT alignment
+        }
+
+        linkBox.add_child(linkLabel);
+        linkBox.add_child(this._linkEntry);
+        linkItem.add_child(linkBox);
+        this.addMenuItem(linkItem);
+
+        // Link entry handlers
+        const saveLink = () => {
+            log("CheckboxSettings: Saving link");
+            this.task.link = this._linkEntry.get_text().trim() || '';
+            this.emit('update_signal');
+        };
+        
+        this._linkEntry.clutter_text.connect('key-focus-out', saveLink);
+        this._linkEntry.clutter_text.connect('key-press-event',
+            (_o,e) => { 
+                if ([KEY_RETURN, KEY_ENTER].includes(e.get_key_symbol())) {
+                    saveLink();
                     return Clutter.EVENT_STOP;
                 }
                 return Clutter.EVENT_PROPAGATE;

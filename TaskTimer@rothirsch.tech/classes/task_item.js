@@ -112,14 +112,29 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         left.add_child(this._pause);
         
         // Center - Name & Time
-        // Truncate long task names with ellipsis
-        this._name = new St.Label({ 
-            text: this.task.name,
-            style_class: 'tasktimer-name',
-            x_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-            style: 'max-width: 200px; text-overflow: ellipsis;'
-        });
+        // Make task name clickable if link exists
+        if (this.task.link && this.task.link.trim()) {
+            log(`TaskTimer: Creating clickable name for task "${this.task.name}" with link "${this.task.link}"`);
+            this._name = new St.Button({
+                label: this.task.name,
+                style_class: 'tasktimer-name tasktimer-name-button',
+                x_expand: true,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: 'max-width: 200px;',
+                reactive: true,
+                can_focus: true,
+                track_hover: true
+            });
+        } else {
+            log(`TaskTimer: Creating regular label for task "${this.task.name}" (no link: "${this.task.link || 'undefined'}")`);
+            this._name = new St.Label({
+                text: this.task.name,
+                style_class: 'tasktimer-name',
+                x_expand: true,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: 'max-width: 200px; text-overflow: ellipsis;'
+            });
+        }
         
         this._timeLbl = new St.Label({
             style_class: 'tasktimer-timer-display',
@@ -203,6 +218,11 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         this._up.connect('clicked', this._onUpClicked.bind(this));
         this._down.connect('clicked', this._onDownClicked.bind(this));
         this._gear.connect('clicked', this._onGearClicked.bind(this));
+        
+        // Connect name click if it's a button (has link)
+        if (this.task.link && this.task.link.trim() && this._name.connect) {
+            this._name.connect('clicked', this._onNameClicked.bind(this));
+        }
     }
 
     _onPlayClicked() {
@@ -261,6 +281,31 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         } else {
             log("TaskTimer: Emitting closeSettings_signal");
             this.emit('closeSettings_signal');
+        }
+    }
+
+    _onNameClicked() {
+        log(`TaskTimer: Name clicked - opening link: ${this.task.link}`);
+        
+        if (!this.task.link || !this.task.link.trim()) {
+            return;
+        }
+        
+        try {
+            // Use Gio to open the URL in the default browser
+            const url = this.task.link.trim();
+            
+            // Add protocol if missing
+            let fullUrl = url;
+            if (!url.match(/^https?:\/\//)) {
+                fullUrl = `https://${url}`;
+            }
+            
+            // Launch the URL
+            Gio.AppInfo.launch_default_for_uri(fullUrl, null);
+            
+        } catch (e) {
+            log(`TaskTimer: Error opening link: ${e.message}`);
         }
     }
 
@@ -423,6 +468,50 @@ class TaskItem extends PopupMenu.PopupBaseMenuItem {
         
         // Force progress bar update
         this._refreshBg();
+    }
+
+    _updateNameDisplay() {
+        // Update the name display and make it clickable if link exists
+        const hasLink = this.task.link && this.task.link.trim();
+        
+        // If link status changed, recreate the name widget
+        if ((hasLink && !this._name.connect) || (!hasLink && this._name.connect)) {
+            // Remove old name widget
+            this._name.destroy();
+            
+            // Create new name widget
+            if (hasLink) {
+                this._name = new St.Button({
+                    label: this.task.name,
+                    style_class: 'tasktimer-name tasktimer-name-button',
+                    x_expand: true,
+                    y_align: Clutter.ActorAlign.CENTER,
+                    style: 'max-width: 200px;',
+                    reactive: true,
+                    can_focus: true,
+                    track_hover: true
+                });
+                this._name.connect('clicked', this._onNameClicked.bind(this));
+            } else {
+                this._name = new St.Label({ 
+                    text: this.task.name,
+                    style_class: 'tasktimer-name',
+                    x_expand: true,
+                    y_align: Clutter.ActorAlign.CENTER,
+                    style: 'max-width: 200px; text-overflow: ellipsis;'
+                });
+            }
+            
+            // Insert at the correct position (between left box and time label)
+            this.insert_child_at_index(this._name, 1);
+        } else {
+            // Just update the text
+            if (this._name.label !== undefined) {
+                this._name.label = this.task.name;
+            } else {
+                this._name.text = this.task.name;
+            }
+        }
     }
 
     _refreshBg() {

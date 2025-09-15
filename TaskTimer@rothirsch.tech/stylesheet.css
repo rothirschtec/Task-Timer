@@ -75,6 +75,69 @@
   text-align: left !important; /* Force left alignment */
 }
 
+/* Clickable task names with links - more specific selector */
+.tasktimer-popup .popup-menu-content .tasktimer-name-button,
+.tasktimer-popup .tasktimer-name-button {
+  flex: 1 !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  text-overflow: ellipsis !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  font-size: 15px !important;
+  text-align: left !important;
+  text-decoration: underline !important;
+  text-decoration-color: white !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 2px !important;
+  color: inherit !important;
+  background-color: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Button label specific styling */
+.tasktimer-popup .tasktimer-name-button StLabel,
+.tasktimer-popup .tasktimer-name-button .label {
+  text-decoration: underline !important;
+  text-decoration-color: inherit !important;
+}
+
+.tasktimer-popup .tasktimer-name-button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  cursor: pointer !important;
+}
+
+/* Link entry field styling */
+.tasktimer-popup .link-entry {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  color: white !important;
+  text-align: left !important;
+}
+
+.tasktimer-popup .link-entry:focus {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Target the actual text input within the entry */
+.tasktimer-popup .link-entry StLabel,
+.tasktimer-popup .link-entry .clutter-text,
+.tasktimer-popup .link-entry input {
+  text-align: left !important;
+  padding-left: 0 !important;
+}
+
+/* Also target the ClutterText directly */
+.tasktimer-popup .link-entry > * {
+  text-align: left !important;
+}
+
 /* Timer display within our extension */
 .tasktimer-popup .tasktimer-timer-display {
   width: auto !important;

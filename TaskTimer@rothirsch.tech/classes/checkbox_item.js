@@ -62,14 +62,27 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
     }
 
     _buildLayout() {
-        // Name with truncation for long names
-        this._name = new St.Label({ 
-            text: this.task.name,
-            style_class: 'tasktimer-name',
-            x_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-            style: 'max-width: 200px; text-overflow: ellipsis;'
-        });
+        // Name with truncation for long names - make clickable if link exists
+        if (this.task.link && this.task.link.trim()) {
+            this._name = new St.Button({
+                label: this.task.name,
+                style_class: 'tasktimer-name tasktimer-name-button',
+                x_expand: true,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: 'max-width: 200px;',
+                reactive: true,
+                can_focus: true,
+                track_hover: true
+            });
+        } else {
+            this._name = new St.Label({ 
+                text: this.task.name,
+                style_class: 'tasktimer-name',
+                x_expand: true,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: 'max-width: 200px; text-overflow: ellipsis;'
+            });
+        }
         
         // Checkboxes container with more compact spacing
         this._checkboxContainer = new St.BoxLayout({
@@ -198,6 +211,11 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
             this.emit('moveDown_signal');
         });
         this._gear.connect('clicked', this._onGearClicked.bind(this));
+        
+        // Connect name click if it's a button (has link)
+        if (this.task.link && this.task.link.trim() && this._name.connect) {
+            this._name.connect('clicked', this._onNameClicked.bind(this));
+        }
     }
     
     _onGearClicked() {
@@ -213,6 +231,75 @@ class CheckboxItem extends PopupMenu.PopupBaseMenuItem {
         } else {
             log("CheckboxItem: Emitting closeSettings_signal");
             this.emit('closeSettings_signal');
+        }
+    }
+
+    _onNameClicked() {
+        log(`CheckboxItem: Name clicked - opening link: ${this.task.link}`);
+        
+        if (!this.task.link || !this.task.link.trim()) {
+            return;
+        }
+        
+        try {
+            // Use Gio to open the URL in the default browser
+            const url = this.task.link.trim();
+            
+            // Add protocol if missing
+            let fullUrl = url;
+            if (!url.match(/^https?:\/\//)) {
+                fullUrl = `https://${url}`;
+            }
+            
+            // Launch the URL
+            Gio.AppInfo.launch_default_for_uri(fullUrl, null);
+            
+        } catch (e) {
+            log(`CheckboxItem: Error opening link: ${e.message}`);
+        }
+    }
+
+    _updateNameDisplay() {
+        // Update the name display and make it clickable if link exists
+        const hasLink = this.task.link && this.task.link.trim();
+        
+        // If link status changed, recreate the name widget
+        if ((hasLink && !this._name.connect) || (!hasLink && this._name.connect)) {
+            // Remove old name widget
+            this._name.destroy();
+            
+            // Create new name widget
+            if (hasLink) {
+                this._name = new St.Button({
+                    label: this.task.name,
+                    style_class: 'tasktimer-name tasktimer-name-button',
+                    x_expand: true,
+                    y_align: Clutter.ActorAlign.CENTER,
+                    style: 'max-width: 200px;',
+                    reactive: true,
+                    can_focus: true,
+                    track_hover: true
+                });
+                this._name.connect('clicked', this._onNameClicked.bind(this));
+            } else {
+                this._name = new St.Label({ 
+                    text: this.task.name,
+                    style_class: 'tasktimer-name',
+                    x_expand: true,
+                    y_align: Clutter.ActorAlign.CENTER,
+                    style: 'max-width: 200px; text-overflow: ellipsis;'
+                });
+            }
+            
+            // Insert at the correct position (first child)
+            this.insert_child_at_index(this._name, 0);
+        } else {
+            // Just update the text
+            if (this._name.label !== undefined) {
+                this._name.label = this.task.name;
+            } else {
+                this._name.text = this.task.name;
+            }
         }
     }
 

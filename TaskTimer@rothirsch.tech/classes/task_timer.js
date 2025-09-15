@@ -495,7 +495,8 @@ class TaskTimer extends PanelMenu.Button {
                 description: _('Enter description here!'),
                 createdOn: this._lastDate, // Store creation date
                 id: `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`, // Unique ID
-                roundUpMinutes: 0 // Round-up setting in minutes (0 = disabled)
+                roundUpMinutes: 0, // Round-up setting in minutes (0 = disabled)
+                link: '' // URL link for the task
             };
             
             // Add to the beginning of the tasks array
@@ -531,7 +532,8 @@ class TaskTimer extends PanelMenu.Button {
                 color: Utils.generateColor(),
                 description: _('Enter description here!'),
                 createdOn: this._lastDate, // Store creation date
-                id: `checkbox_${Date.now()}_${Math.floor(Math.random() * 10000)}` // Unique ID
+                id: `checkbox_${Date.now()}_${Math.floor(Math.random() * 10000)}`, // Unique ID
+                link: '' // URL link for the task
             };
             
             // Add to the beginning of the tasks array
@@ -736,7 +738,11 @@ class TaskTimer extends PanelMenu.Button {
                 this._updateIndicator();
                 row._refreshBg(); // Make sure to update bg color if changed
                 row._updateTimeLabel(); // Add this line to update the time display
+                if (row._updateNameDisplay) row._updateNameDisplay(); // Update name display for link changes
                 this._saveState(); // Save when settings are updated
+
+                // Refresh the entire task display to properly update name clickability
+                this._updateTaskDisplay();
             });
             
             const idx = this._taskSection._getMenuItems().indexOf(row);
@@ -767,7 +773,12 @@ class TaskTimer extends PanelMenu.Button {
             settings.connect('update_signal', () => {
                 log("TaskTimer: Checkbox settings update signal received");
                 row.set_style(`background-color:${row.task.color};`); // Update bg color if changed
+                // Update name display for checkbox items (need to add this method)
+                if (row._updateNameDisplay) row._updateNameDisplay();
                 this._saveState(); // Save when settings are updated
+
+                // Refresh the entire task display to properly update name clickability
+                this._updateTaskDisplay();
             });
 
             const idx = this._taskSection._getMenuItems().indexOf(row);
@@ -1044,12 +1055,23 @@ class TaskTimer extends PanelMenu.Button {
                     this._tasks = data.tasks;
                     this._lastDate = today;
                     log(`TaskTimer: Loaded current day's data (${today})`);
-                    
-                    // Ensure each task has an ID (for older data format)
+
+                    // Ensure each task has an ID (for older data format) and link property
                     if (dataVersion === 1) {
                         this._tasks = this._tasks.map(task => {
                             if (!task.id) {
                                 task.id = `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                            }
+                            if (task.link === undefined) {
+                                task.link = '';
+                            }
+                            return task;
+                        });
+                    } else {
+                        // For all versions, ensure backward compatibility with link field
+                        this._tasks = this._tasks.map(task => {
+                            if (task.link === undefined) {
+                                task.link = '';
                             }
                             return task;
                         });
@@ -1082,10 +1104,13 @@ class TaskTimer extends PanelMenu.Button {
                 }
                 this._lastDate = today;
                 
-                // Ensure all tasks have IDs
+                // Ensure all tasks have IDs and link property
                 this._tasks = this._tasks.map(task => {
                     if (!task.id) {
                         task.id = `task_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                    }
+                    if (task.link === undefined) {
+                        task.link = '';
                     }
                     return task;
                 });
@@ -1168,6 +1193,11 @@ class TaskTimer extends PanelMenu.Button {
                 // Ensure task has roundUpMinutes property
                 if (newTask.roundUpMinutes === undefined) {
                     newTask.roundUpMinutes = 0;
+                }
+
+                // Ensure task has link property
+                if (newTask.link === undefined) {
+                    newTask.link = '';
                 }
                 
                 if (task.isCheckbox) {
